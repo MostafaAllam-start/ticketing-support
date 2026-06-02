@@ -1,0 +1,73 @@
+{
+  "title": "تذاكري",
+  "subtitle": "تابع المشكلات التي أبلغت عنها.",
+  "empty": "لم تُبلّغ عن أي مشكلة بعد.",
+  "signOut": "تسجيل الخروج",
+  "table": {
+    "id": "المعرّف",
+    "subject": "الموضوع",
+    "status": "الحالة",
+    "replies": "الردود",
+    "created": "تاريخ الإنشاء"
+  },
+  "status": {
+    "open": "مفتوحة",
+    "in_progress": "قيد التنفيذ",
+    "closed": "مغلقة"
+  },
+  "report": {
+    "button": "الإبلاغ عن مشكلة",
+    "title": "الإبلاغ عن مشكلة",
+    "description": "صف المشكلة وسيقوم فريقنا بمتابعتها.",
+    "subjectLabel": "الموضوع",
+    "subjectPlaceholder": "ملخص موجز للمشكلة",
+    "descriptionLabel": "الوصف",
+    "descriptionPlaceholder": "اشرح ما حدث وخطوات إعادة إظهار المشكلة.",
+    "submit": "إرسال",
+    "submitting": "جارٍ الإرسال…",
+    "cancel": "إلغاء",
+    "success": "تم الإبلاغ عن مشكلتك.",
+    "attachments": "المرفقات (اختياري)",
+    "attachmentsHint": "اسحب الصور وأفلِتها هنا، أو انقر للاختيار",
+    "attachmentsTypes": "PNG أو JPG أو WebP أو GIF · حتى 5 ميجابايت لكل صورة",
+    "removeImage": "إزالة الصورة"
+  },
+  "detail": {
+    "back": "العودة إلى تذاكري",
+    "created": "تاريخ الإنشاء",
+    "assignee": "مُسندة إلى",
+    "unassigned": "غير مُسندة",
+    "description": "الوصف",
+    "attachments": "المرفقات"
+  },
+  "replies": {
+    "title": "الردود",
+    "empty": "لا توجد ردود بعد."
+  },
+  "reports": {
+    "title": "التقارير",
+    "empty": "لا توجد تقارير بعد.",
+    "issue": "المشكلة",
+    "solution": "الحل",
+    "by": "بواسطة {name}"
+  },
+  "actions": "إجراءات",
+  "edit": "تعديل",
+  "delete": "حذف",
+  "editDialog": {
+    "title": "تعديل التذكرة",
+    "description": "حدّث موضوع التذكرة أو وصفها.",
+    "submit": "حفظ",
+    "submitting": "جارٍ الحفظ…",
+    "cancel": "إلغاء",
+    "success": "تم تحديث التذكرة."
+  },
+  "deleteDialog": {
+    "title": "حذف التذكرة",
+    "description": "سيؤدي هذا إلى إزالة «{title}» من تذاكرك. لا يمكن التراجع عن ذلك.",
+    "confirm": "حذف",
+    "deleting": "جارٍ الحذف…",
+    "cancel": "إلغاء",
+    "success": "تم حذف التذكرة."
+  }
+}

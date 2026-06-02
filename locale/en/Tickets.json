@@ -1,0 +1,73 @@
+{
+  "title": "My Tickets",
+  "subtitle": "Track the issues you have reported.",
+  "empty": "You haven't reported any issues yet.",
+  "signOut": "Sign out",
+  "table": {
+    "id": "ID",
+    "subject": "Subject",
+    "status": "Status",
+    "replies": "Replies",
+    "created": "Created"
+  },
+  "status": {
+    "open": "Open",
+    "in_progress": "In progress",
+    "closed": "Closed"
+  },
+  "report": {
+    "button": "Report an issue",
+    "title": "Report an issue",
+    "description": "Describe the problem and our team will follow up.",
+    "subjectLabel": "Subject",
+    "subjectPlaceholder": "Brief summary of the issue",
+    "descriptionLabel": "Description",
+    "descriptionPlaceholder": "Explain what happened and the steps to reproduce it.",
+    "submit": "Submit",
+    "submitting": "Submitting…",
+    "cancel": "Cancel",
+    "success": "Your issue has been reported.",
+    "attachments": "Attachments (optional)",
+    "attachmentsHint": "Drag & drop images here, or click to browse",
+    "attachmentsTypes": "PNG, JPG, WebP or GIF · up to 5 MB each",
+    "removeImage": "Remove image"
+  },
+  "detail": {
+    "back": "Back to my tickets",
+    "created": "Created",
+    "assignee": "Assigned to",
+    "unassigned": "Unassigned",
+    "description": "Description",
+    "attachments": "Attachments"
+  },
+  "replies": {
+    "title": "Replies",
+    "empty": "No replies yet."
+  },
+  "reports": {
+    "title": "Reports",
+    "empty": "No reports yet.",
+    "issue": "Issue",
+    "solution": "Solution",
+    "by": "By {name}"
+  },
+  "actions": "Actions",
+  "edit": "Edit",
+  "delete": "Delete",
+  "editDialog": {
+    "title": "Edit ticket",
+    "description": "Update the subject or description of your ticket.",
+    "submit": "Save",
+    "submitting": "Saving…",
+    "cancel": "Cancel",
+    "success": "Ticket updated."
+  },
+  "deleteDialog": {
+    "title": "Delete ticket",
+    "description": "This removes “{title}” from your tickets. This cannot be undone.",
+    "confirm": "Delete",
+    "deleting": "Deleting…",
+    "cancel": "Cancel",
+    "success": "Ticket deleted."
+  }
+}

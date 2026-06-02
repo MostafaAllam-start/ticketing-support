@@ -1,0 +1,30 @@
+import { getTranslations } from "next-intl/server";
+import { Link } from "@/i18n/navigation";
+import { Button } from "@/components/ui/button";
+
+export async function LandingHero() {
+  const t = await getTranslations("Landing");
+
+  return (
+    <section className="relative overflow-hidden border-b">
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-primary/5 to-transparent" />
+      <div className="pointer-events-none absolute -top-32 start-1/2 -z-10 size-[36rem] -translate-x-1/2 rounded-full bg-primary/5 blur-3xl" />
+      <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-4 py-24 text-center md:py-32">
+        <h1 className="text-4xl font-semibold tracking-tight text-balance md:text-5xl">
+          {t("hero.title")}
+        </h1>
+        <p className="max-w-xl text-lg text-muted-foreground text-pretty">
+          {t("hero.subtitle")}
+        </p>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <Button asChild size="lg">
+            <Link href="/register">{t("hero.primary")}</Link>
+          </Button>
+          <Button asChild size="lg" variant="outline">
+            <a href="#contact">{t("hero.secondary")}</a>
+          </Button>
+        </div>
+      </div>
+    </section>
+  );
+}

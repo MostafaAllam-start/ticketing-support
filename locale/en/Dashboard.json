@@ -1,0 +1,264 @@
+{
+  "nav": {
+    "kpis": "KPIs",
+    "users": "Users",
+    "roles": "Roles",
+    "issues": "Issues",
+    "teamMembers": "Team Members",
+    "partners": "Partners",
+    "companies": "Companies",
+    "myTickets": "My Tickets",
+    "reportedTickets": "Reported Tickets"
+  },
+  "kpis": {
+    "title": "KPIs",
+    "subtitle": "Ticket metrics at a glance.",
+    "total": "Total",
+    "open": "Open",
+    "inProgress": "In progress",
+    "closed": "Closed",
+    "statusTitle": "Tickets by status",
+    "statusDescription": "Current breakdown of all tickets.",
+    "trendTitle": "Tickets created",
+    "trendDescription": "New tickets per day over the last 30 days."
+  },
+  "users": {
+    "title": "Users",
+    "subtitle": "All registered users and their roles.",
+    "name": "Name",
+    "username": "Username",
+    "email": "Email",
+    "role": "Role",
+    "status": "Status",
+    "active": "Active",
+    "disabled": "Disabled",
+    "empty": "No users found.",
+    "image": "Photo",
+    "add": "Create user",
+    "actions": "Actions",
+    "edit": "Edit",
+    "disable": "Disable",
+    "enable": "Enable",
+    "form": {
+      "addTitle": "Create user",
+      "editTitle": "Edit user",
+      "description": "Accounts that can sign in to the workspace.",
+      "name": "Name",
+      "username": "Username",
+      "email": "Email",
+      "role": "Role",
+      "jobTitle": "Job title",
+      "image": "Photo",
+      "imageHint": "Drag & drop an image here, or click to browse",
+      "imageTypes": "PNG, JPG, WEBP or GIF · up to 5 MB",
+      "imageRemove": "Remove image",
+      "password": "Password",
+      "passwordHint": "Leave blank to keep the current password.",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving…"
+    },
+    "toast": {
+      "created": "User created.",
+      "updated": "User updated.",
+      "disabled": "User disabled.",
+      "enabled": "User enabled."
+    },
+    "disableConfirm": {
+      "disableTitle": "Disable user",
+      "enableTitle": "Enable user",
+      "disableDescription": "{name} will no longer be able to sign in. You can re-enable them later.",
+      "enableDescription": "{name} will be able to sign in again.",
+      "cancel": "Cancel",
+      "disable": "Disable",
+      "enable": "Enable"
+    }
+  },
+  "roles": {
+    "title": "Roles",
+    "subtitle": "Roles available in the system.",
+    "id": "ID",
+    "name": "Name",
+    "empty": "No roles found."
+  },
+  "teamMembers": {
+    "title": "Team Members",
+    "subtitle": "Manage the team shown on the landing page.",
+    "image": "Photo",
+    "name": "Name",
+    "position": "Position",
+    "user": "Linked user",
+    "none": "—",
+    "add": "Add member",
+    "edit": "Edit",
+    "delete": "Delete",
+    "actions": "Actions",
+    "empty": "No team members yet.",
+    "form": {
+      "addTitle": "Add team member",
+      "editTitle": "Edit team member",
+      "description": "Details shown in the public team section.",
+      "name": "Name",
+      "position": "Position",
+      "image": "Photo",
+      "imageHint": "Drag & drop an image here, or click to browse",
+      "imageTypes": "PNG, JPG, WEBP or GIF · up to 5 MB",
+      "imageRemove": "Remove image",
+      "user": "Linked user (optional)",
+      "userNone": "None",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving…"
+    },
+    "deleteConfirm": {
+      "title": "Delete team member",
+      "description": "This removes {name} from the team. This cannot be undone.",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "deleting": "Deleting…"
+    },
+    "toast": {
+      "created": "Team member added.",
+      "updated": "Team member updated.",
+      "deleted": "Team member deleted."
+    }
+  },
+  "partners": {
+    "title": "Partners",
+    "subtitle": "Manage the partners shown on the landing page.",
+    "logo": "Logo",
+    "name": "Name",
+    "details": "Details",
+    "add": "Add partner",
+    "edit": "Edit",
+    "delete": "Delete",
+    "actions": "Actions",
+    "empty": "No partners yet.",
+    "form": {
+      "addTitle": "Add partner",
+      "editTitle": "Edit partner",
+      "description": "Details shown in the public partners section.",
+      "name": "Name",
+      "logo": "Logo URL",
+      "details": "Details",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving…"
+    },
+    "deleteConfirm": {
+      "title": "Delete partner",
+      "description": "This removes {name} from the partners list. This cannot be undone.",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "deleting": "Deleting…"
+    },
+    "toast": {
+      "created": "Partner added.",
+      "updated": "Partner updated.",
+      "deleted": "Partner deleted."
+    }
+  },
+  "companies": {
+    "title": "Companies",
+    "subtitle": "Manage the companies that own projects.",
+    "logo": "Logo",
+    "name": "Name",
+    "website": "Website",
+    "add": "Add company",
+    "edit": "Edit",
+    "delete": "Delete",
+    "actions": "Actions",
+    "empty": "No companies yet.",
+    "form": {
+      "addTitle": "Add company",
+      "editTitle": "Edit company",
+      "description": "Companies that own projects in the workspace.",
+      "name": "Name",
+      "logo": "Logo",
+      "logoHint": "Drag & drop an image here, or click to browse",
+      "logoTypes": "PNG, JPG, WEBP or GIF · up to 5 MB",
+      "logoRemove": "Remove image",
+      "website": "Website URL",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving…"
+    },
+    "deleteConfirm": {
+      "title": "Delete company",
+      "description": "This removes {name} and all of its projects. This cannot be undone.",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "deleting": "Deleting…"
+    },
+    "toast": {
+      "created": "Company added.",
+      "updated": "Company updated.",
+      "deleted": "Company deleted."
+    }
+  },
+  "tickets": {
+    "title": "Tickets",
+    "subtitle": "Track and resolve reported issues.",
+    "id": "ID",
+    "ticket": "Ticket",
+    "status": "Status",
+    "reporter": "Reporter",
+    "assignee": "Assignees",
+    "created": "Created",
+    "unassigned": "Unassigned",
+    "empty": "No tickets to show.",
+    "new": "New ticket",
+    "actions": "Actions",
+    "edit": "Edit",
+    "assign": "Assign engineers",
+    "delete": "Delete",
+    "noEngineers": "No software-engineers available.",
+    "form": {
+      "addTitle": "New ticket",
+      "editTitle": "Edit ticket",
+      "formDescription": "Track an issue and route it to the right engineers.",
+      "subject": "Subject",
+      "subjectPlaceholder": "Brief summary of the issue",
+      "descLabel": "Description",
+      "descPlaceholder": "Describe the issue and any relevant context.",
+      "status": "Status",
+      "assignees": "Assign to engineers",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving…"
+    },
+    "assignDialog": {
+      "title": "Assign engineers",
+      "description": "Choose one or more software-engineers to handle this ticket.",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving…"
+    },
+    "deleteConfirm": {
+      "title": "Delete ticket",
+      "description": "This removes “{title}”. This cannot be undone.",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "deleting": "Deleting…"
+    },
+    "toast": {
+      "created": "Ticket created.",
+      "updated": "Ticket updated.",
+      "deleted": "Ticket deleted.",
+      "assigned": "Assignment updated."
+    }
+  },
+  "status": {
+    "open": "Open",
+    "in_progress": "In progress",
+    "closed": "Closed"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "empty": "You're all caught up.",
+    "viewAll": "View all"
+  },
+  "account": "Account",
+  "logout": "Log out",
+  "toggleSidebar": "Toggle sidebar"
+}

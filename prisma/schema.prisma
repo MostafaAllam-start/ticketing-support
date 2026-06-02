@@ -1,0 +1,256 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TicketStatus {
+  open
+  in_progress
+  closed
+}
+
+enum ImageEntityType {
+  reply
+  ticket
+}
+
+model Role {
+  id           Int           @id @default(autoincrement())
+  name         String        @unique
+  users        User[]
+  userProjects UserProject[]
+
+  @@map("roles")
+}
+
+model User {
+  id         Int      @id @default(autoincrement())
+  name       String
+  username   String   @unique
+  email      String   @unique
+  password   String
+  image      String?
+  roleId     Int      @map("role_id")
+  jobTitle   String?   @map("job_title")
+  website    String?
+  whatsapp   String?
+  linkedin   String?
+  // When true, this user has a public contact card at /contact-info/[id];
+  // otherwise that page 404s. Opt-in (defaults to false).
+  hasContactInfoCard Boolean   @default(false) @map("has_contact_info_card")
+  isDisabled         Boolean   @default(false) @map("is_disabled")
+  deletedAt          DateTime? @map("deleted_at")
+
+  role Role @relation(fields: [roleId], references: [id])
+
+  // Tickets this user reported, and the assignment rows linking this user
+  // (a software-engineer) to the tickets assigned to them.
+  reportedTickets   Ticket[]           @relation("ReportedTickets")
+  ticketAssignments TicketAssignment[]
+
+  // Optional link to a public-facing team member profile.
+  teamMember TeamMember?
+
+  // In-app notifications addressed to this user.
+  notifications Notification[]
+
+  // Diagnostic reports (issue + solution) this user authored on tickets.
+  ticketReports TicketReport[]
+
+  // Projects this user is a member of (with a per-project role).
+  projectMemberships UserProject[]
+
+  @@index([roleId])
+  @@map("users")
+}
+
+model Ticket {
+  id          Int          @id @default(autoincrement())
+  title       String
+  description String
+  userId      Int          @map("user_id")
+  status      TicketStatus @default(open)
+  createdAt   DateTime     @default(now()) @map("created_at")
+  deletedAt   DateTime?    @map("deleted_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  // `user` is the reporter. Engineers are assigned through the ticket_assignments
+  // join table: a ticket can be assigned to many software-engineers.
+  user      User               @relation("ReportedTickets", fields: [userId], references: [id])
+  assignees TicketAssignment[]
+  replies   Reply[]
+  reports   TicketReport[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("tickets")
+}
+
+// A diagnostic report on a ticket: the `issue` an engineer/consultant identified
+// and the `solution` they applied or recommended. `user` is the author. A ticket
+// can accumulate many reports over its lifetime.
+model TicketReport {
+  id        Int      @id @default(autoincrement())
+  ticketId  Int      @map("ticket_id")
+  issue     String
+  solution  String
+  userId    Int      @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([ticketId])
+  @@index([userId])
+  @@map("ticket_reports")
+}
+
+// Join table for the many-to-many between tickets and their assigned
+// software-engineers. A reviewer assigns one ticket to one or more engineers,
+// and an engineer can be assigned many tickets.
+model TicketAssignment {
+  ticketId   Int @map("ticket_id")
+  assigneeId Int @map("assignee_id")
+
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  assignee User   @relation(fields: [assigneeId], references: [id], onDelete: Cascade)
+
+  @@id([ticketId, assigneeId])
+  @@index([assigneeId])
+  @@map("ticket_assignments")
+}
+
+model Reply {
+  id            Int    @id @default(autoincrement())
+  description   String
+  ticketId      Int?   @map("ticket_id")
+  parentReplyId Int?   @map("parent_reply_id")
+
+  // A reply belongs to a ticket and/or to a parent reply (recursive thread).
+  ticket       Ticket? @relation(fields: [ticketId], references: [id])
+  parentReply  Reply?  @relation("ReplyThread", fields: [parentReplyId], references: [id])
+  childReplies Reply[] @relation("ReplyThread")
+
+  @@index([ticketId])
+  @@index([parentReplyId])
+  @@map("replies")
+}
+
+model Image {
+  id   Int    @id @default(autoincrement())
+  path String
+
+  // Polymorphic association: an image belongs to either a ticket or a reply.
+  // Prisma can't enforce a polymorphic foreign key, so entity_type + entity_id
+  // are plain columns resolved in application code.
+  entityType ImageEntityType @map("entity_type")
+  entityId   Int             @map("entity_id")
+
+  @@index([entityType, entityId])
+  @@map("images")
+}
+
+model ContactMessage {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String
+  subject   String?
+  message   String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@map("contact_messages")
+}
+
+model TeamMember {
+  id       Int     @id @default(autoincrement())
+  name     String
+  position String
+  image    String
+  userId   Int?    @unique @map("user_id")
+
+  // Optional 1:1 link to an application user. Nullable so a team member can exist
+  // without a login; unique so a user maps to at most one team member.
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("team_members")
+}
+
+model Partner {
+  id      Int    @id @default(autoincrement())
+  name    String
+  logo    String
+  details String
+
+  @@map("partners")
+}
+
+// In-app notification addressed to a user. `type` is an application-level string
+// (e.g. "ticket_assigned") describing the event; `entityId` optionally points at
+// the related record (e.g. a ticket id) and is resolved in application code.
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  type      String
+  title     String
+  details   String
+  entityId  Int?     @map("entity_id")
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Recipient. Cascades so a deleted user's notifications are removed with it.
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+model Company {
+  id         Int    @id @default(autoincrement())
+  name       String
+  logo       String
+  websiteUrl String @map("website_url")
+
+  projects Project[]
+
+  @@map("companies")
+}
+
+model Project {
+  id        Int    @id @default(autoincrement())
+  name      String
+  location  String
+  companyId Int    @map("company_id")
+
+  company Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  members UserProject[]
+
+  @@index([companyId])
+  @@map("projects")
+}
+
+// Join table assigning a user to a project with a specific role. One membership
+// (and role) per (user, project) pair.
+model UserProject {
+  userId    Int @map("user_id")
+  projectId Int @map("project_id")
+  roleId    Int @map("role_id")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  role    Role    @relation(fields: [roleId], references: [id])
+
+  @@id([userId, projectId])
+  @@index([projectId])
+  @@index([roleId])
+  @@map("users_projects")
+}

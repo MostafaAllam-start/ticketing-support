@@ -1,0 +1,25 @@
+{
+  "welcome": {
+    "platformName": "ECM Support",
+    "tagline": "The unified workspace for ECM Business Suite support.",
+    "intro": "Welcome — view and save this team member's contact details.",
+    "getStarted": "View contact card"
+  },
+  "card": {
+    "email": "Email",
+    "role": "Role",
+    "company": "Company",
+    "findMe": "Find me on",
+    "whatsapp": "WhatsApp",
+    "linkedin": "LinkedIn",
+    "website": "Website",
+    "addContact": "Add to contacts",
+    "back": "Back to team",
+    "dialogDescription": "Contact details for {name}.",
+    "downloadError": "Could not generate the contact card. Please try again."
+  },
+  "footer": {
+    "poweredBy": "Powered by",
+    "team": "the ECM Support team"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell($ok=$false; for\\($i=0;$i -lt 40;$i++\\){ try { Invoke-WebRequest -Uri 'http://localhost:3100/en/login' -UseBasicParsing -TimeoutSec 3 | Out-Null; $ok=$true; break } catch { if\\($_.Exception.Response\\){ $ok=$true; break } } ; Start-Sleep -Milliseconds 750 }; if\\($ok\\){\"server ready\"} else {\"timeout\"; Get-Content scripts\\\\server.log -Tail 20})",
+      "PowerShell(pnpm exec tsc --noEmit)",
+      "PowerShell(pnpm exec tsx scripts/mint.mts)",
+      "PowerShell(pnpm exec prisma migrate dev --name add_companies_projects_user_links)",
+      "PowerShell(pnpm exec prisma generate)",
+      "PowerShell(pnpm exec eslint \"app/[locale]/contact-info\" \"app/[locale]/_components/landing/team-member-card.tsx\" \"app/[locale]/_components/landing/landing-team.tsx\" 2>&1)",
+      "PowerShell(pnpm exec prisma migrate deploy 2>&1)",
+      "PowerShell(pnpm exec prisma generate 2>&1)",
+      "PowerShell(pnpm build 2>&1)",
+      "PowerShell(pnpm exec eslint \"app/[locale]/contact-info\" \"app/[locale]/_components/landing/team-member-card.tsx\" \"app/[locale]/_components/landing/landing-team.tsx\" \"services/user-service/index.ts\" \"services/team-member-service/index.ts\" \"prisma/seeding/sample-users.ts\" 2>&1)"
+    ]
+  }
+}
