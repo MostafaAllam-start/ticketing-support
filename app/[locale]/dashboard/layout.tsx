@@ -7,9 +7,12 @@ import {
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { requireDashboardUser } from "@/lib/auth/guards";
-import { ticketService } from "@/services";
+import { notificationService } from "@/services";
 import { DashboardSidebar } from "./_components/dashboard-sidebar";
-import { NotificationBell } from "./_components/notification-bell";
+import {
+  NotificationBell,
+  type NotificationItem,
+} from "./_components/notification-bell";
 
 export default async function DashboardLayout({
   children,
@@ -26,20 +29,29 @@ export default async function DashboardLayout({
   // dir="rtl", so place it on the right for the RTL (Arabic) locale.
   const side = locale === "ar" ? "right" : "left";
 
-  // Notification feed: the most recent tickets relevant to this role (engineers
-  // see tickets assigned to them; admins/reviewers see the reported queue).
-  const isEngineer = user.role.name === "software-engineer";
-  const recentTickets = isEngineer
-    ? await ticketService.assignedTo(user.id)
-    : await ticketService.reported();
-  const notifications = recentTickets.slice(0, 5).map((ticket) => ({
-    id: ticket.id,
-    title: ticket.title,
-    status: ticket.status,
-    createdAt: ticket.createdAt.toISOString().slice(0, 10),
-  }));
-  const notificationsHref =
-    user.role.name === "admin" ? "/dashboard/issues" : "/dashboard/tickets";
+  const [notifications, unreadCount] = await Promise.all([
+    notificationService.listForUser(user.id, { limit: 5 }),
+    notificationService.unreadCount(user.id),
+  ]);
+
+  const notificationItems: NotificationItem[] = notifications
+    .filter(
+      (item): item is typeof item & { entityType: NonNullable<typeof item.entityType>; entityId: number } =>
+        item.entityType != null && item.entityId != null,
+    )
+    .map((item) => ({
+      id: item.id,
+      title: item.title,
+      details: item.details,
+      createdAt: item.createdAt.toISOString().slice(0, 10),
+      entityType: item.entityType,
+      entityId: item.entityId,
+      isRead: item.isRead,
+    }));
+
+  const notificationsHref = user.isAdmin
+    ? "/dashboard/issues"
+    : "/dashboard/tickets";
 
   return (
     <SidebarProvider>
@@ -53,7 +65,8 @@ export default async function DashboardLayout({
           <SidebarTrigger />
           <div className="ms-auto flex items-center gap-2">
             <NotificationBell
-              notifications={notifications}
+              notifications={notificationItems}
+              unreadCount={unreadCount}
               viewAllHref={notificationsHref}
             />
             <ThemeToggle />

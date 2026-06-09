@@ -16,47 +16,80 @@ enum TicketStatus {
   closed
 }
 
-enum ImageEntityType {
+// Polymorphic owners an attachment (uploaded file) can belong to.
+enum AttachmentEntityType {
   reply
   ticket
+  suggestion
+  complaint
+  ticket_report
+}
+
+// Polymorphic owners a reply can belong to.
+enum ReplyEntityType {
+  ticket
+  complaint
+  suggestion
+  ticket_report
+}
+
+// The kind of record a notification points at, so the UI can deep-link to the
+// matching detail page (resolved together with entityId in application code).
+enum NotificationEntityType {
+  ticket
+  suggestion
+  complaint
 }
 
 model Role {
   id           Int           @id @default(autoincrement())
   name         String        @unique
-  users        User[]
+  // Roles are assigned per-project (see UserProject). The global admin is a flag
+  // on User (`isAdmin`), not a row here.
   userProjects UserProject[]
 
   @@map("roles")
 }
 
 model User {
-  id         Int      @id @default(autoincrement())
-  name       String
-  username   String   @unique
-  email      String   @unique
-  password   String
-  image      String?
-  roleId     Int      @map("role_id")
-  jobTitle   String?   @map("job_title")
-  website    String?
-  whatsapp   String?
-  linkedin   String?
+  id                 Int       @id @default(autoincrement())
+  name               String
+  username           String    @unique
+  email              String    @unique
+  password           String
+  image              String?
+  // Global admin flag. Every other role is granted per-project (see UserProject);
+  // a non-admin with no project membership is a plain customer ("user").
+  isAdmin            Boolean   @default(false) @map("is_admin")
+  // Whether this user may open the staff dashboard. Admins always can; for
+  // everyone else it is an explicit, admin-granted toggle (independent of any
+  // project membership).
+  canAccessDashboard Boolean   @default(false) @map("can_access_dashboard")
+  jobTitle           String?   @map("job_title")
+  website            String?
+  whatsapp           String?
+  linkedin           String?
   // When true, this user has a public contact card at /contact-info/[id];
   // otherwise that page 404s. Opt-in (defaults to false).
   hasContactInfoCard Boolean   @default(false) @map("has_contact_info_card")
+  // When true, this user is featured in their company's public landing-page
+  // "Our Team" section. Opt-in (defaults to false).
+  isTeamMember       Boolean   @default(false) @map("is_team_member")
   isDisabled         Boolean   @default(false) @map("is_disabled")
   deletedAt          DateTime? @map("deleted_at")
 
-  role Role @relation(fields: [roleId], references: [id])
+  // The company this user picked at registration (ECM or CTC). Nullable until a
+  // newly registered "user" makes the choice on /company-select.
+  companyId Int?     @map("company_id")
+  company   Company? @relation(fields: [companyId], references: [id])
 
   // Tickets this user reported, and the assignment rows linking this user
   // (a software-engineer) to the tickets assigned to them.
   reportedTickets   Ticket[]           @relation("ReportedTickets")
   ticketAssignments TicketAssignment[]
 
-  // Optional link to a public-facing team member profile.
-  teamMember TeamMember?
+  // Tickets this user (a reviewer/admin) reviewed and closed.
+  reviewedTickets Ticket[] @relation("ReviewedTickets")
 
   // In-app notifications addressed to this user.
   notifications Notification[]
@@ -67,7 +100,17 @@ model User {
   // Projects this user is a member of (with a per-project role).
   projectMemberships UserProject[]
 
-  @@index([roleId])
+  // Projects this user is the manager of (one manager per project).
+  managedProjects Project[] @relation("ManagedProjects")
+
+  // Suggestions and complaints this user authored.
+  suggestions Suggestion[]
+  complaints  Complaint[]
+
+  // Replies (ticket/complaint/suggestion conversation messages) this user wrote.
+  replies Reply[]
+
+  @@index([companyId])
   @@map("users")
 }
 
@@ -81,15 +124,37 @@ model Ticket {
   deletedAt   DateTime?    @map("deleted_at")
   updatedAt   DateTime     @updatedAt @map("updated_at")
 
+  // The company this ticket belongs to. Set from the reporter's company when the
+  // ticket is created (both ECM and CTC). Nullable for staff-created tickets.
+  companyId Int?     @map("company_id")
+  company   Company? @relation(fields: [companyId], references: [id])
+
+  // The project this ticket belongs to. Nullable: ECM tickets are not scoped to a
+  // project, while CTC tickets pick one of the company's projects at report time.
+  projectId Int?     @map("project_id")
+  project   Project? @relation(fields: [projectId], references: [id])
+
+  // Review/close metadata: the reviewer or admin who closed the ticket, when they
+  // did, and the closing comment they left. All null until the ticket is closed;
+  // cleared again if it is reopened.
+  reviewerId    Int?      @map("reviewer_id")
+  reviewer      User?     @relation("ReviewedTickets", fields: [reviewerId], references: [id])
+  reviewedAt    DateTime? @map("reviewed_at")
+  reviewComment String?   @map("review_comment")
+
   // `user` is the reporter. Engineers are assigned through the ticket_assignments
-  // join table: a ticket can be assigned to many software-engineers.
-  user      User               @relation("ReportedTickets", fields: [userId], references: [id])
-  assignees TicketAssignment[]
-  replies   Reply[]
-  reports   TicketReport[]
+  // join table: a ticket can be assigned to many software-engineers. Replies are
+  // attached polymorphically (see Reply.entityType/entityId), not via a relation.
+  user       User               @relation("ReportedTickets", fields: [userId], references: [id])
+  assignees  TicketAssignment[]
+  reports    TicketReport[]
+  complaints Complaint[]
 
   @@index([userId])
   @@index([status])
+  @@index([projectId])
+  @@index([companyId])
+  @@index([reviewerId])
   @@map("tickets")
 }
 
@@ -129,33 +194,96 @@ model TicketAssignment {
 }
 
 model Reply {
-  id            Int    @id @default(autoincrement())
-  description   String
-  ticketId      Int?   @map("ticket_id")
-  parentReplyId Int?   @map("parent_reply_id")
+  id          Int    @id @default(autoincrement())
+  description String
 
-  // A reply belongs to a ticket and/or to a parent reply (recursive thread).
-  ticket       Ticket? @relation(fields: [ticketId], references: [id])
+  // The author of this reply. Replies are a two-party conversation (e.g. the
+  // ticket reporter and the reviewer handling it), so each one records who wrote
+  // it; the UI attributes and aligns messages by this user.
+  userId Int  @map("user_id")
+  user   User @relation(fields: [userId], references: [id])
+
+  // Polymorphic association: a reply belongs to a ticket, complaint, or
+  // suggestion. Prisma can't model a polymorphic FK, so entity_type + entity_id
+  // are plain columns resolved in application code (mirrors Attachment).
+  entityType    ReplyEntityType @map("entity_type")
+  entityId      Int             @map("entity_id")
+  parentReplyId Int?            @map("parent_reply_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // A reply may also belong to a parent reply (recursive thread).
   parentReply  Reply?  @relation("ReplyThread", fields: [parentReplyId], references: [id])
   childReplies Reply[] @relation("ReplyThread")
 
-  @@index([ticketId])
+  @@index([entityType, entityId])
   @@index([parentReplyId])
+  @@index([userId])
   @@map("replies")
 }
 
-model Image {
-  id   Int    @id @default(autoincrement())
-  path String
+model Attachment {
+  id  Int    @id @default(autoincrement())
+  url String
 
-  // Polymorphic association: an image belongs to either a ticket or a reply.
-  // Prisma can't enforce a polymorphic foreign key, so entity_type + entity_id
-  // are plain columns resolved in application code.
-  entityType ImageEntityType @map("entity_type")
-  entityId   Int             @map("entity_id")
+  // Polymorphic association: an attachment belongs to a ticket, reply,
+  // suggestion, complaint, or ticket report. Prisma can't enforce a polymorphic
+  // foreign key, so entity_type + entity_id are plain columns resolved in app code.
+  entityType AttachmentEntityType @map("entity_type")
+  entityId   Int                  @map("entity_id")
 
   @@index([entityType, entityId])
-  @@map("images")
+  @@map("attachments")
+}
+
+// A user-submitted improvement idea. Authored by staff from the dashboard header.
+// `details` is optional; attachments are stored polymorphically (entity_type
+// "suggestion").
+model Suggestion {
+  id          Int      @id @default(autoincrement())
+  title       String
+  details     String?
+  createdById Int      @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // The company this suggestion is about. Required: every suggestion is scoped to
+  // a company (taken from the author's selected company in the header).
+  companyId Int     @map("company_id")
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  // The project this suggestion is about. Nullable: a suggestion may be general to
+  // the company, or scoped to one of that company's projects.
+  projectId Int?     @map("project_id")
+  project   Project? @relation(fields: [projectId], references: [id])
+
+  createdBy User @relation(fields: [createdById], references: [id])
+
+  @@index([createdById])
+  @@index([companyId])
+  @@index([projectId])
+  @@map("suggestions")
+}
+
+// A complaint a reporter files about how one of their tickets was handled (e.g.
+// the reviewer did not answer properly). Attachments are stored polymorphically
+// (entity_type "complaint").
+model Complaint {
+  id          Int      @id @default(autoincrement())
+  title       String
+  details     String
+  ticketId    Int      @map("ticket_id")
+  createdById Int      @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  ticket    Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  createdBy User   @relation(fields: [createdById], references: [id])
+
+  @@index([ticketId])
+  @@index([createdById])
+  @@map("complaints")
 }
 
 model ContactMessage {
@@ -170,41 +298,33 @@ model ContactMessage {
   @@map("contact_messages")
 }
 
-model TeamMember {
-  id       Int     @id @default(autoincrement())
-  name     String
-  position String
-  image    String
-  userId   Int?    @unique @map("user_id")
-
-  // Optional 1:1 link to an application user. Nullable so a team member can exist
-  // without a login; unique so a user maps to at most one team member.
-  user User? @relation(fields: [userId], references: [id])
-
-  @@map("team_members")
-}
-
 model Partner {
   id      Int    @id @default(autoincrement())
   name    String
   logo    String
   details String
 
+  // A partner can be shown on more than one company's landing page, and a company
+  // can have many partners — many-to-many (implicit join table).
+  companies Company[]
+
   @@map("partners")
 }
 
 // In-app notification addressed to a user. `type` is an application-level string
-// (e.g. "ticket_assigned") describing the event; `entityId` optionally points at
-// the related record (e.g. a ticket id) and is resolved in application code.
+// (e.g. "ticket_assigned") describing the event; `entityType` + `entityId`
+// optionally point at the related record (e.g. a ticket or suggestion) so the UI
+// can deep-link to its detail page. Both are resolved in application code.
 model Notification {
-  id        Int      @id @default(autoincrement())
-  userId    Int      @map("user_id")
-  type      String
-  title     String
-  details   String
-  entityId  Int?     @map("entity_id")
-  isRead    Boolean  @default(false) @map("is_read")
-  createdAt DateTime @default(now()) @map("created_at")
+  id         Int                     @id @default(autoincrement())
+  userId     Int                     @map("user_id")
+  type       String
+  title      String
+  details    String
+  entityType NotificationEntityType? @map("entity_type")
+  entityId   Int?                    @map("entity_id")
+  isRead     Boolean                 @default(false) @map("is_read")
+  createdAt  DateTime                @default(now()) @map("created_at")
 
   // Recipient. Cascades so a deleted user's notifications are removed with it.
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -220,7 +340,11 @@ model Company {
   logo       String
   websiteUrl String @map("website_url")
 
-  projects Project[]
+  projects    Project[]
+  users       User[]
+  tickets     Ticket[]
+  partners    Partner[]
+  suggestions Suggestion[]
 
   @@map("companies")
 }
@@ -231,10 +355,18 @@ model Project {
   location  String
   companyId Int    @map("company_id")
 
-  company Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  members UserProject[]
+  // The user who manages this project. A manager sees the tickets/complaints of
+  // the project(s) they manage. Nullable until an admin assigns one.
+  managerId Int? @map("manager_id")
+
+  company     Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  manager     User?         @relation("ManagedProjects", fields: [managerId], references: [id])
+  members     UserProject[]
+  tickets     Ticket[]
+  suggestions Suggestion[]
 
   @@index([companyId])
+  @@index([managerId])
   @@map("projects")
 }
 

@@ -1,45 +1,53 @@
 import { getTranslations } from "next-intl/server";
-import { teamMemberService } from "@/services";
+import { userService } from "@/services";
+import type { BrandKey } from "@/lib/companies";
 import { type ContactCard } from "../../contact-info/_components/contact-card";
 import { TeamMemberCard, type TeamContact } from "./team-member-card";
 
-export async function LandingTeam() {
+export async function LandingTeam({
+  brand,
+  companyId,
+}: {
+  brand: BrandKey;
+  companyId: number | null;
+}) {
   const t = await getTranslations("Landing");
-  const members = await teamMemberService.listWithContacts();
+  // The users featured as team members for the company being branded. No company
+  // resolved (shouldn't happen — the landing is gated) means no members.
+  const members = companyId
+    ? await userService.teamMembersForCompany(companyId)
+    : [];
 
-  // For each member, the always-shown display info and — only when the linked
-  // user opted in (hasContactInfoCard) — a full contact object that powers the
-  // click-to-open contact modal.
-  const cards = members.map((member) => {
-    const user = member.user;
+  // For each member, the always-shown display info and — only when the user opted
+  // in (hasContactInfoCard) — a full contact object that powers the click-to-open
+  // contact modal.
+  const cards = members.map((user) => {
     const display: TeamContact = {
-      id: member.id,
-      name: member.name,
-      position: member.position,
-      image: member.image,
+      id: user.id,
+      name: user.name,
+      position: user.jobTitle ?? "",
+      image: user.image ?? "",
     };
-    const company = user?.projectMemberships[0]?.project.company ?? null;
-    const contact: ContactCard | null =
-      user && user.hasContactInfoCard
-        ? {
-            id: user.id,
-            name: member.name,
-            position: member.position,
-            image: member.image,
-            email: user.email,
-            jobTitle: user.jobTitle,
-            website: user.website,
-            whatsapp: user.whatsapp,
-            linkedin: user.linkedin,
-            company: company
-              ? {
-                  name: company.name,
-                  logo: company.logo,
-                  websiteUrl: company.websiteUrl,
-                }
-              : null,
-          }
-        : null;
+    const contact: ContactCard | null = user.hasContactInfoCard
+      ? {
+          id: user.id,
+          name: user.name,
+          position: user.jobTitle ?? "",
+          image: user.image ?? "",
+          email: user.email,
+          jobTitle: user.jobTitle,
+          website: user.website,
+          whatsapp: user.whatsapp,
+          linkedin: user.linkedin,
+          company: user.company
+            ? {
+                name: user.company.name,
+                logo: user.company.logo,
+                websiteUrl: user.company.websiteUrl,
+              }
+            : null,
+        }
+      : null;
     return { display, contact };
   });
 
@@ -50,7 +58,9 @@ export async function LandingTeam() {
           <h2 className="text-3xl font-semibold tracking-tight">
             {t("team.title")}
           </h2>
-          <p className="mt-2 text-muted-foreground">{t("team.subtitle")}</p>
+          <p className="mt-2 text-muted-foreground">
+            {t(`${brand}.teamSubtitle`)}
+          </p>
         </div>
 
         {cards.length === 0 ? (

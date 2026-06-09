@@ -21,7 +21,13 @@ import type { TicketStats } from "@/services";
 
 // Snapshot of how the in-scope tickets break down by status, as a donut with the
 // running total in the center.
-export function KpiStatusChart({ stats }: { stats: TicketStats }) {
+export function KpiStatusChart({
+  stats,
+  isGlobal = true,
+}: {
+  stats: TicketStats;
+  isGlobal?: boolean;
+}) {
   const t = useTranslations("Dashboard");
 
   const chartConfig = {
@@ -44,7 +50,11 @@ export function KpiStatusChart({ stats }: { stats: TicketStats }) {
     <Card className="flex flex-col">
       <CardHeader>
         <CardTitle>{t("kpis.statusTitle")}</CardTitle>
-        <CardDescription>{t("kpis.statusDescription")}</CardDescription>
+        <CardDescription>
+          {isGlobal
+            ? t("kpis.statusDescriptionGlobal")
+            : t("kpis.statusDescriptionScoped")}
+        </CardDescription>
       </CardHeader>
       <CardContent className="flex-1 pb-0">
         <ChartContainer

@@ -1,6 +1,5 @@
 "use client";
 
-import { ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -46,7 +45,6 @@ export function MyTicketsTable({ tickets }: { tickets: MyTicketRow[] }) {
             <TableHead>{t("table.replies")}</TableHead>
             <TableHead>{t("table.created")}</TableHead>
             <TableHead className="w-12" />
-            <TableHead className="w-10" />
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -55,14 +53,14 @@ export function MyTicketsTable({ tickets }: { tickets: MyTicketRow[] }) {
               key={ticket.id}
               role="link"
               tabIndex={0}
-              onClick={() => open(ticket.id)}
+              onDoubleClick={() => open(ticket.id)}
               onKeyDown={(event) => {
                 if (event.key === "Enter" || event.key === " ") {
                   event.preventDefault();
                   open(ticket.id);
                 }
               }}
-              className="cursor-pointer"
+              className="cursor-pointer select-none"
             >
               <TableCell className="text-muted-foreground">
                 #{ticket.id}
@@ -87,9 +85,6 @@ export function MyTicketsTable({ tickets }: { tickets: MyTicketRow[] }) {
                     description: ticket.description,
                   }}
                 />
-              </TableCell>
-              <TableCell className="text-muted-foreground">
-                <ChevronRight className="size-4 rtl:rotate-180" />
               </TableCell>
             </TableRow>
           ))}

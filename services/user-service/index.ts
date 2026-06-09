@@ -8,17 +8,34 @@ import {
   verifyToken,
 } from "@/lib/auth/jwt";
 import { loginSchema, registerSchema, updateUserSchema } from "./schemas";
+import { UserRole, effectiveRoleName } from "@/lib/auth/roles";
 import type {
   LoginInput,
   RegisterInput,
   UpdateUserInput,
   SafeUser,
   AuthUser,
+  UserMembership,
 } from "./types";
+import type { User } from "@/app/generated/prisma/client";
 
 const BCRYPT_ROUNDS = 12;
-const DEFAULT_ROLE = "user";
 const ENGINEER_ROLE = "software-engineer";
+const CONSULTANT_ROLE = "sap-consultant";
+const ASSIGNABLE_ROLES = [ENGINEER_ROLE, CONSULTANT_ROLE] as const;
+
+// Relations loaded to derive a user's effective role and per-project memberships
+// (roles are per-project now; admin is the `isAdmin` flag).
+const authInclude = {
+  projectMemberships: {
+    select: {
+      projectId: true,
+      role: { select: { name: true } },
+      project: { select: { companyId: true } },
+    },
+  },
+  managedProjects: { select: { id: true } },
+} as const;
 
 export class UserService extends Service {
   // Verifies credentials, sets the JWT as an httpOnly cookie, and returns both
@@ -32,7 +49,6 @@ export class UserService extends Service {
         deletedAt: null,
         OR: [{ username: identifier }, { email: identifier }],
       },
-      include: { role: true },
     });
 
     // Use a single generic error for all failure modes so the response does not
@@ -48,7 +64,6 @@ export class UserService extends Service {
     const token = await signToken({
       sub: String(user.id),
       username: user.username,
-      role: user.role.name,
     });
 
     await this.setAuthCookie(token);
@@ -87,9 +102,20 @@ export class UserService extends Service {
 
     const user = await this.prisma.user.findFirst({
       where: { id: Number(sub), deletedAt: null, isDisabled: false },
-      include: { role: true },
+      include: authInclude,
     });
-    return user ? this.sanitize(user) : null;
+    return user ? this.toAuthUser(user) : null;
+  }
+
+  // A single active user enriched with their effective role + memberships. Returns
+  // null if missing/deleted. Used by admin actions that must inspect the current
+  // role/admin status/username (e.g. the default-admin lock).
+  async findWithRole(id: number): Promise<AuthUser | null> {
+    const user = await this.prisma.user.findFirst({
+      where: { id, deletedAt: null },
+      include: authInclude,
+    });
+    return user ? this.toAuthUser(user) : null;
   }
 
   // Active software-engineers, for ticket-assignment pickers. Returns just the
@@ -99,11 +125,70 @@ export class UserService extends Service {
       where: {
         deletedAt: null,
         isDisabled: false,
-        role: { name: ENGINEER_ROLE },
+        projectMemberships: { some: { role: { name: ENGINEER_ROLE } } },
       },
       select: { id: true, name: true, username: true },
       orderBy: { name: "asc" },
     });
+  }
+
+  // Active global admin user ids (for notification fan-out).
+  async activeAdminIds(): Promise<number[]> {
+    const admins = await this.prisma.user.findMany({
+      where: { deletedAt: null, isDisabled: false, isAdmin: true },
+      select: { id: true },
+    });
+    return admins.map((user) => user.id);
+  }
+
+  // From the given ids, returns only those who are active engineers or consultants.
+  async fieldStaffIds(userIds: number[]): Promise<number[]> {
+    if (userIds.length === 0) return [];
+    const users = await this.prisma.user.findMany({
+      where: {
+        id: { in: userIds },
+        deletedAt: null,
+        isDisabled: false,
+        projectMemberships: {
+          some: { role: { name: { in: [...ASSIGNABLE_ROLES] } } },
+        },
+      },
+      select: { id: true },
+    });
+    return users.map((user) => user.id);
+  }
+
+  // Engineers and SAP consultants eligible for ticket assignment.
+  async assignableStaff(): Promise<
+    { id: number; name: string; username: string; role: string }[]
+  > {
+    const users = await this.prisma.user.findMany({
+      where: {
+        deletedAt: null,
+        isDisabled: false,
+        projectMemberships: {
+          some: { role: { name: { in: [...ASSIGNABLE_ROLES] } } },
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        username: true,
+        projectMemberships: {
+          where: { role: { name: { in: [...ASSIGNABLE_ROLES] } } },
+          select: { role: { select: { name: true } } },
+          take: 1,
+        },
+      },
+      orderBy: { name: "asc" },
+    });
+
+    return users.map((user) => ({
+      id: user.id,
+      name: user.name,
+      username: user.username,
+      role: user.projectMemberships[0]?.role.name ?? ENGINEER_ROLE,
+    }));
   }
 
   // Public-facing contact details for a single person, for the
@@ -111,9 +196,9 @@ export class UserService extends Service {
   //
   // SECURITY/PRIVACY: limited to users who have explicitly opted in via
   // `hasContactInfoCard`, so an arbitrary account's email/contact info can't be
-  // harvested by walking ids — anyone without the flag 404s. Returns the linked
-  // team member's photo/position (if any) and the first company the user belongs
-  // to (via project membership) for the card's company section.
+  // harvested by walking ids — anyone without the flag 404s. Returns the first
+  // company the user belongs to (via project membership) for the card's company
+  // section.
   async contactCard(id: number) {
     const user = await this.prisma.user.findFirst({
       where: {
@@ -131,7 +216,6 @@ export class UserService extends Service {
         website: true,
         whatsapp: true,
         linkedin: true,
-        teamMember: { select: { image: true, position: true } },
         projectMemberships: {
           take: 1,
           select: {
@@ -157,30 +241,129 @@ export class UserService extends Service {
     return user;
   }
 
+  // Users featured on a company's public landing-page "Our Team" section: active,
+  // flagged as team members, and belonging to that company. Each carries the
+  // contact details needed to render (and optionally open) its card.
+  teamMembersForCompany(companyId: number) {
+    return this.prisma.user.findMany({
+      where: {
+        deletedAt: null,
+        isDisabled: false,
+        isTeamMember: true,
+        companyId,
+      },
+      select: {
+        id: true,
+        name: true,
+        image: true,
+        jobTitle: true,
+        email: true,
+        website: true,
+        whatsapp: true,
+        linkedin: true,
+        hasContactInfoCard: true,
+        company: { select: { name: true, logo: true, websiteUrl: true } },
+      },
+      orderBy: { id: "asc" },
+    });
+  }
+
+  // All users flagged as team members, with their company, for the admin
+  // team-members page.
+  teamMembers() {
+    return this.prisma.user.findMany({
+      where: { deletedAt: null, isTeamMember: true },
+      select: {
+        id: true,
+        name: true,
+        username: true,
+        image: true,
+        jobTitle: true,
+        company: { select: { id: true, name: true } },
+      },
+      orderBy: { id: "asc" },
+    });
+  }
+
   // Active users with their role, for the admin Users table.
   async list(): Promise<AuthUser[]> {
     const users = await this.prisma.user.findMany({
       where: { deletedAt: null },
-      include: { role: true },
+      include: authInclude,
       orderBy: { id: "asc" },
     });
-    return users.map((user) => this.sanitize(user));
+    return users.map((user) => this.toAuthUser(user));
   }
 
-  // Creates a new user with a hashed password. `role` is optional and defaults
-  // to "user".
+  // Active users with their role and the distinct set of companies they are
+  // connected to — their own company plus the companies of the projects they
+  // belong to or manage. Powers the admin Users table (companies column + the
+  // double-click details panel).
+  async listDetailed() {
+    const users = await this.prisma.user.findMany({
+      where: { deletedAt: null },
+      include: {
+        company: { select: { id: true, name: true } },
+        projectMemberships: {
+          select: {
+            role: { select: { name: true } },
+            project: { select: { company: { select: { id: true, name: true } } } },
+          },
+        },
+        managedProjects: {
+          select: { id: true, company: { select: { id: true, name: true } } },
+        },
+      },
+      orderBy: { id: "asc" },
+    });
+
+    return users.map((user) => {
+      const companies = new Map<number, string>();
+      if (user.company) companies.set(user.company.id, user.company.name);
+      for (const m of user.projectMemberships) {
+        companies.set(m.project.company.id, m.project.company.name);
+      }
+      for (const p of user.managedProjects) {
+        companies.set(p.company.id, p.company.name);
+      }
+
+      const roleName = effectiveRoleName({
+        isAdmin: user.isAdmin,
+        managesProject: user.managedProjects.length > 0,
+        membershipRoleNames: user.projectMemberships.map((m) => m.role.name),
+      });
+
+      const {
+        password: _password,
+        projectMemberships: _memberships,
+        managedProjects: _managed,
+        company: _company,
+        ...safe
+      } = user;
+      const hasProjectRole = user.projectMemberships.length > 0 || user.managedProjects.length > 0;
+      return {
+        ...safe,
+        canAccessDashboard: safe.canAccessDashboard || hasProjectRole,
+        role: { name: roleName },
+        companies: [...companies].map(([id, name]) => ({ id, name })),
+      };
+    });
+  }
+
+  // Creates a new user with a hashed password. Newly created accounts are plain
+  // customers by default; pass `isAdmin`/`canAccessDashboard` to elevate.
   //
-  // SECURITY: `role` is privileged. Only pass a non-default role from an already
-  // authorized (e.g. admin-only) caller; never forward a client-supplied role
-  // from a public registration endpoint, or users could grant themselves
-  // elevated roles. The service does not enforce this — authorization is the
-  // caller's responsibility.
+  // SECURITY: `isAdmin` and `canAccessDashboard` are privileged. Only pass them
+  // from an already authorized (e.g. admin-only) caller; never forward a
+  // client-supplied flag from a public registration endpoint, or users could
+  // grant themselves access. The service does not enforce this — authorization is
+  // the caller's responsibility. Other roles are granted per-project via
+  // userProjectService.
   async register(
     input: RegisterInput,
-    role: string = DEFAULT_ROLE,
+    opts: { isAdmin?: boolean; canAccessDashboard?: boolean } = {},
   ): Promise<SafeUser> {
     const data = registerSchema.parse(input);
-    const roleId = await this.resolveRoleId(role);
     await this.assertUnique(data.username, data.email);
 
     const user = await this.prisma.user.create({
@@ -191,20 +374,20 @@ export class UserService extends Service {
         password: await bcrypt.hash(data.password, BCRYPT_ROUNDS),
         jobTitle: data.jobTitle,
         image: data.image,
-        roleId,
+        isAdmin: opts.isAdmin ?? false,
+        canAccessDashboard: opts.canAccessDashboard ?? false,
       },
     });
     return this.sanitize(user);
   }
 
-  // Updates user data. Any field is optional; password is re-hashed when given
-  // and `role` (a role name) is resolved to its id.
+  // Updates user data. Any field is optional; password is re-hashed when given.
   //
-  // SECURITY: changing `role` is privileged — gate this call behind an
+  // SECURITY: changing `isAdmin` is privileged — gate this call behind an
   // authorization check in the caller; the service does not enforce who may
-  // change roles.
+  // grant admin.
   async update(id: number, input: UpdateUserInput): Promise<SafeUser> {
-    const { role, password, ...rest } = updateUserSchema.parse(input);
+    const { password, ...rest } = updateUserSchema.parse(input);
     await this.assertExists(id);
 
     if (rest.username || rest.email) {
@@ -218,7 +401,6 @@ export class UserService extends Service {
         ...(password
           ? { password: await bcrypt.hash(password, BCRYPT_ROUNDS) }
           : {}),
-        ...(role ? { roleId: await this.resolveRoleId(role) } : {}),
       },
     });
     return this.sanitize(user);
@@ -251,12 +433,46 @@ export class UserService extends Service {
 
   // --- helpers ---
 
-  private async resolveRoleId(name: string): Promise<number> {
-    const role = await this.prisma.role.findUnique({ where: { name } });
-    if (!role) {
-      throw new Error(`Role "${name}" does not exist`);
-    }
-    return role.id;
+  // Enriches a raw user (loaded with the authInclude relations) into an AuthUser:
+  // strips the password, maps the per-project memberships, records the managed
+  // project ids, and derives the single effective role.
+  private toAuthUser(
+    user: User & {
+      projectMemberships: {
+        projectId: number;
+        role: { name: string };
+        project: { companyId: number };
+      }[];
+      managedProjects: { id: number }[];
+    },
+  ): AuthUser {
+    const {
+      password: _password,
+      projectMemberships,
+      managedProjects,
+      ...safe
+    } = user;
+    const memberships: UserMembership[] = projectMemberships.map((m) => ({
+      projectId: m.projectId,
+      companyId: m.project.companyId,
+      roleName: m.role.name,
+    }));
+    const managedProjectIds = managedProjects.map((p) => p.id);
+    const hasProjectRole = memberships.length > 0 || managedProjectIds.length > 0;
+    return {
+      ...safe,
+      canAccessDashboard: safe.canAccessDashboard || hasProjectRole,
+      userRole: safe.isAdmin ? UserRole.Admin : UserRole.User,
+      memberships,
+      managedProjectIds,
+      role: {
+        name: effectiveRoleName({
+          isAdmin: safe.isAdmin,
+          managesProject: managedProjectIds.length > 0,
+          membershipRoleNames: memberships.map((m) => m.roleName),
+        }),
+      },
+    };
   }
 
   private async assertExists(id: number): Promise<void> {

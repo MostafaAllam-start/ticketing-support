@@ -133,4 +133,13 @@
   html {
     @apply font-sans;
   }
+  /* Native <select> option popups. The selects are styled with a custom
+     translucent background (dark:bg-input/30), and Windows Chromium renders the
+     option list using the control's own colors — so in dark mode the option text
+     follows color-scheme (light) on a light popup and becomes invisible. Pin
+     options to the opaque popover palette so they stay readable in both themes. */
+  option {
+    background-color: var(--popover);
+    color: var(--popover-foreground);
+  }
 }

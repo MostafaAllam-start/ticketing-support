@@ -4,7 +4,7 @@ import { useActionState, useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, keepInputOnError } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,7 +32,7 @@ export function LandingContact() {
           <p className="mt-2 text-muted-foreground">{t("contact.subtitle")}</p>
         </div>
 
-        <form ref={formRef} action={action} className="space-y-4">
+        <form ref={formRef} action={action} onReset={keepInputOnError(state)} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="contact-name">{t("contact.name")}</Label>

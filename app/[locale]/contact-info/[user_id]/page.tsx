@@ -54,8 +54,8 @@ export default async function ContactInfoPage({
   const card: ContactCard = {
     id: user.id,
     name: user.name,
-    position: user.teamMember?.position || user.jobTitle || "",
-    image: user.image || user.teamMember?.image || "",
+    position: user.jobTitle || "",
+    image: user.image || "",
     email: user.email,
     jobTitle: user.jobTitle,
     website: user.website,
@@ -71,14 +71,14 @@ export default async function ContactInfoPage({
   };
 
   return (
-    <div className="relative flex min-h-screen flex-col overflow-hidden bg-gradient-to-b from-background to-muted/40">
+    <div className="relative flex min-h-dvh flex-col overflow-x-hidden bg-gradient-to-b from-background to-muted/40 md:h-dvh md:overflow-hidden">
       {/* Decorative, theme-aware background glow */}
       <div aria-hidden className="pointer-events-none absolute inset-0">
         <div className="absolute -top-24 start-1/2 size-72 -translate-x-1/2 rounded-full bg-primary/10 blur-3xl rtl:translate-x-1/2" />
         <div className="absolute bottom-0 end-0 size-64 rounded-full bg-primary/5 blur-3xl" />
       </div>
 
-      <header className="z-10 flex items-center justify-between gap-4 px-4 py-4 sm:px-6">
+      <header className="z-10 flex shrink-0 items-center justify-between gap-4 px-4 py-4 sm:px-6">
         <Link
           href="/#team"
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -92,12 +92,12 @@ export default async function ContactInfoPage({
         </div>
       </header>
 
-      <main className="z-10 flex flex-1 items-center justify-center px-4 py-8">
+      <main className="z-10 flex flex-1 items-center justify-center px-4 py-8 md:min-h-0 md:overflow-y-auto">
         <ContactCardExperience contact={card} />
       </main>
 
       {/* Animated footer (the original's decorative reveal, via tw-animate-css) */}
-      <footer className="z-10 px-6 py-8">
+      <footer className="z-10 shrink-0 px-6 py-8">
         <div className="flex flex-col items-center gap-4">
           <div className="flex items-center gap-3">
             <span className="h-px w-12 animate-in fade-in fill-mode-both bg-gradient-to-r from-transparent to-primary/40 delay-300 duration-700" />

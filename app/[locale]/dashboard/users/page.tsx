@@ -1,6 +1,6 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { requireRole } from "@/lib/auth/guards";
-import { roleService, userService } from "@/services";
+import { DEFAULT_ADMIN_USERNAME, requireRole } from "@/lib/auth/guards";
+import { userService } from "@/services";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -15,6 +15,7 @@ import {
   AddUserButton,
   UserRowActions,
 } from "./_components/user-actions";
+import { UserRow } from "./_components/user-row";
 
 // Up to two uppercase initials from a display name, for the avatar fallback.
 function initials(name: string) {
@@ -37,11 +38,7 @@ export default async function UsersPage({
   const admin = await requireRole("admin");
   const t = await getTranslations("Dashboard");
 
-  const [users, roles] = await Promise.all([
-    userService.list(),
-    roleService.list(),
-  ]);
-  const roleNames = roles.map((role) => role.name);
+  const users = await userService.listDetailed();
 
   return (
     <div className="space-y-6">
@@ -51,8 +48,9 @@ export default async function UsersPage({
             {t("users.title")}
           </h1>
           <p className="text-sm text-muted-foreground">{t("users.subtitle")}</p>
+          <p className="text-xs text-muted-foreground">{t("users.details.hint")}</p>
         </div>
-        <AddUserButton roles={roleNames} />
+        <AddUserButton />
       </div>
 
       <div className="rounded-lg border">
@@ -64,13 +62,29 @@ export default async function UsersPage({
               <TableHead>{t("users.username")}</TableHead>
               <TableHead>{t("users.email")}</TableHead>
               <TableHead>{t("users.role")}</TableHead>
+              <TableHead>{t("users.companies")}</TableHead>
               <TableHead>{t("users.status")}</TableHead>
               <TableHead className="w-12" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {users.map((user) => (
-              <TableRow key={user.id}>
+              <UserRow
+                key={user.id}
+                details={{
+                  id: user.id,
+                  name: user.name,
+                  username: user.username,
+                  email: user.email,
+                  image: user.image,
+                  role: user.role.name,
+                  jobTitle: user.jobTitle,
+                  isDisabled: user.isDisabled,
+                  isTeamMember: user.isTeamMember,
+                  hasContactInfoCard: user.hasContactInfoCard,
+                  companies: user.companies,
+                }}
+              >
                 <TableCell>
                   <Avatar className="size-9">
                     {user.image && (
@@ -90,6 +104,21 @@ export default async function UsersPage({
                   <Badge variant="outline">{user.role.name}</Badge>
                 </TableCell>
                 <TableCell>
+                  {user.companies.length > 0 ? (
+                    <span className="flex flex-wrap gap-1">
+                      {user.companies.map((company) => (
+                        <Badge key={company.id} variant="secondary">
+                          {company.name}
+                        </Badge>
+                      ))}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">
+                      {t("users.noCompanies")}
+                    </span>
+                  )}
+                </TableCell>
+                <TableCell>
                   {user.isDisabled ? (
                     <Badge variant="destructive">{t("users.disabled")}</Badge>
                   ) : (
@@ -104,15 +133,16 @@ export default async function UsersPage({
                       username: user.username,
                       email: user.email,
                       jobTitle: user.jobTitle,
-                      role: user.role.name,
+                      isAdmin: user.isAdmin,
+                      canAccessDashboard: user.canAccessDashboard,
                       image: user.image,
                       isDisabled: user.isDisabled,
                     }}
-                    roles={roleNames}
                     isSelf={user.id === admin.id}
+                    isDefaultAdmin={user.username === DEFAULT_ADMIN_USERNAME}
                   />
                 </TableCell>
-              </TableRow>
+              </UserRow>
             ))}
           </TableBody>
         </Table>

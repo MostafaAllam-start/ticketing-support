@@ -1,7 +1,12 @@
 import { setRequestLocale } from "next-intl/server";
 import { redirect } from "@/i18n/navigation";
-import { userService } from "@/services";
-import { isPrivileged } from "@/lib/auth/guards";
+import { companyService, userService } from "@/services";
+import {
+  brandCompanyId,
+  canViewDashboard,
+  requireCompanySelection,
+} from "@/lib/auth/guards";
+import { brandKeyForCompany } from "@/lib/companies";
 import { LandingHeader } from "./_components/landing/landing-header";
 import { LandingHero } from "./_components/landing/landing-hero";
 import { LandingAbout } from "./_components/landing/landing-about";
@@ -18,24 +23,34 @@ export default async function HomePage({
   const { locale } = await params;
   setRequestLocale(locale);
 
-  // Privileged roles get the dashboard; anonymous visitors and the "user" role
-  // see the public landing page.
+  // Users with dashboard access get the dashboard; anonymous visitors and plain
+  // customers see the public landing page.
   const user = await userService.currentUser();
-  if (user && isPrivileged(user.role.name)) {
+  if (user && canViewDashboard(user)) {
     redirect({ href: "/dashboard", locale });
   }
 
+  // Company selection is the first step: an anonymous visitor without a choice is
+  // sent to pick one before the landing page renders.
+  await requireCompanySelection();
+
+  // Brand the landing for the selected company (the user's company, else the
+  // cookie choice).
+  const companyId = await brandCompanyId();
+  const company = companyId ? await companyService.findById(companyId) : null;
+  const brand = brandKeyForCompany(company?.name);
+
   return (
     <div className="flex min-h-screen flex-col">
-      <LandingHeader />
+      <LandingHeader brand={brand} />
       <main className="flex-1">
-        <LandingHero />
-        <LandingAbout />
-        <LandingTeam />
-        <LandingPartners />
+        <LandingHero brand={brand} />
+        <LandingAbout brand={brand} />
+        <LandingTeam brand={brand} companyId={companyId} />
+        <LandingPartners brand={brand} companyId={companyId} />
         <LandingContact />
       </main>
-      <LandingFooter />
+      <LandingFooter brand={brand} />
     </div>
   );
 }

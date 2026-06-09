@@ -8,24 +8,15 @@
   "cta": {
     "signIn": "Sign in",
     "getStarted": "Get started",
-    "myTickets": "My Tickets"
+    "myTickets": "My Tickets",
+    "signOut": "Sign out"
   },
   "hero": {
-    "title": "Resolve ECM issues, faster.",
-    "subtitle": "ECM Support is your single workspace to report, track, and resolve ECM Business Suite issues — with the right people on every ticket.",
     "primary": "Get started",
     "secondary": "Contact us"
   },
-  "about": {
-    "title": "About ECM Support",
-    "body": "We help teams keep their ECM Business Suite running smoothly. Report an issue, follow it through a clear workflow, and collaborate with engineers and reviewers until it is resolved.",
-    "point1": "Centralized issue tracking",
-    "point2": "Role-based workflows for engineers and reviewers",
-    "point3": "Clear visibility with live KPIs"
-  },
   "team": {
     "title": "Our Team",
-    "subtitle": "The people behind ECM Support.",
     "empty": "Our team will be introduced here soon.",
     "card": {
       "view": "View contact"
@@ -33,7 +24,6 @@
   },
   "partners": {
     "title": "Our Partners",
-    "subtitle": "Trusted by teams that rely on ECM.",
     "empty": "Our partners will be listed here soon."
   },
   "contact": {
@@ -51,8 +41,30 @@
     "subjectPlaceholder": "How can we help?",
     "messagePlaceholder": "Tell us a bit more…"
   },
-  "footer": {
-    "tagline": "Support that keeps your team moving.",
-    "rights": "© ECM Support. All rights reserved."
+  "ecm": {
+    "heroTitle": "Resolve ECM issues, faster.",
+    "heroSubtitle": "ECM Support is your single workspace to report, track, and resolve ECM Business Suite issues — with the right people on every ticket.",
+    "aboutTitle": "About ECM Support",
+    "aboutBody": "We help teams keep their ECM Business Suite running smoothly. Report an issue, follow it through a clear workflow, and collaborate with engineers and reviewers until it is resolved.",
+    "aboutPoint1": "Centralized issue tracking",
+    "aboutPoint2": "Role-based workflows for engineers and reviewers",
+    "aboutPoint3": "Clear visibility with live KPIs",
+    "teamSubtitle": "The people behind ECM Support.",
+    "partnersSubtitle": "Trusted by teams that rely on ECM.",
+    "footerTagline": "Support that keeps your team moving.",
+    "footerRights": "© ECM Support. All rights reserved."
+  },
+  "ctc": {
+    "heroTitle": "Support for CTC's SAP projects.",
+    "heroSubtitle": "The CTC Support system is your single workspace to report, track, and resolve issues on CTC's SAP projects — with the right people on every ticket.",
+    "aboutTitle": "About CTC Support",
+    "aboutBody": "This is the support system for CTC's SAP projects. Report an issue, follow it through a clear workflow, and collaborate with engineers, reviewers, and consultants until it is resolved.",
+    "aboutPoint1": "Centralized issue tracking",
+    "aboutPoint2": "Role-based, project-scoped workflows",
+    "aboutPoint3": "Clear visibility with live KPIs",
+    "teamSubtitle": "The people behind CTC Support.",
+    "partnersSubtitle": "Trusted by the teams behind CTC's SAP project.",
+    "footerTagline": "Support for CTC's SAP projects.",
+    "footerRights": "© CTC Support. All rights reserved."
   }
 }

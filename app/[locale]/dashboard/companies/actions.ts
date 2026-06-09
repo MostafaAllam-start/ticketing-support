@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { companyService } from "@/services";
 import { requireRole } from "@/lib/auth/guards";
+import { isSeededCompany } from "@/lib/companies";
 import { saveUserImage } from "@/lib/uploads";
 
 export type ActionState = {
@@ -96,6 +97,11 @@ export async function updateCompanyAction(
   const id = readId(formData);
   if (!id) return { error: "Invalid company" };
 
+  const existing = await companyService.findById(id);
+  if (!existing) return { error: "Invalid company" };
+  // The seeded companies (ECM/CTC) keep their name — only logo + website change.
+  const seeded = isSeededCompany(existing.name);
+
   let logo: string;
   try {
     logo = await resolveLogo(formData);
@@ -108,7 +114,7 @@ export async function updateCompanyAction(
   }
 
   const parsed = fieldsSchema.safeParse({
-    name: formData.get("name"),
+    name: seeded ? existing.name : formData.get("name"),
     logo,
     websiteUrl: formData.get("websiteUrl"),
   });
@@ -116,8 +122,13 @@ export async function updateCompanyAction(
     return { fieldErrors: fieldErrorsFrom(parsed.error) };
   }
 
+  // Never let a seeded company be renamed, even via a tampered request.
+  const data = seeded
+    ? { logo: parsed.data.logo, websiteUrl: parsed.data.websiteUrl }
+    : parsed.data;
+
   try {
-    await companyService.update(id, parsed.data);
+    await companyService.update(id, data);
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Failed to save" };
   }
@@ -134,6 +145,13 @@ export async function deleteCompanyAction(
 
   const id = readId(formData);
   if (!id) return { error: "Invalid company" };
+
+  const existing = await companyService.findById(id);
+  if (!existing) return { error: "Invalid company" };
+  // The seeded companies (ECM/CTC) are structural and can't be deleted.
+  if (isSeededCompany(existing.name)) {
+    return { error: "This company can't be deleted." };
+  }
 
   try {
     await companyService.delete(id);

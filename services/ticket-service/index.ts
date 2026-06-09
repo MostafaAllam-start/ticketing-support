@@ -1,20 +1,31 @@
 import { Service } from "../service";
 import {
   assignTicketSchema,
+  createReportSchema,
   createTicketSchema,
   updateTicketSchema,
 } from "./schemas";
 import type {
   AssignTicketInput,
+  CompanyTicketStats,
+  CreateReportInput,
   CreateTicketInput,
+  ProjectTicketStats,
   TicketScope,
   TicketStats,
   TicketTrendPoint,
   UpdateTicketInput,
 } from "./types";
-import type { Ticket } from "@/app/generated/prisma/client";
+import type { Ticket, TicketReport, TicketStatus } from "@/app/generated/prisma/client";
 
 const ENGINEER_ROLE = "software-engineer";
+const CONSULTANT_ROLE = "sap-consultant";
+const ASSIGNABLE_ROLES = [ENGINEER_ROLE, CONSULTANT_ROLE] as const;
+
+// The reviewer/admin who closed a ticket, for the detail views.
+const reviewerSelect = {
+  reviewer: { select: { id: true, name: true } },
+} as const;
 
 // Reporter summary + the assigned engineers (through the join table), for table
 // display. Each assignment row carries the engineer's user summary.
@@ -27,6 +38,7 @@ const assigneesInclude = {
 const ticketInclude = {
   user: { select: { id: true, name: true, username: true } },
   assignees: assigneesInclude,
+  project: { select: { id: true, name: true } },
 } as const;
 
 export class TicketService extends Service {
@@ -57,29 +69,76 @@ export class TicketService extends Service {
     });
   }
 
-  // A user's own submitted tickets (the "user" role surface), with a reply count
-  // for the list and the engineers it is assigned to.
-  reportedBy(userId: number) {
+  // Manager dashboard: tickets belonging to the given project(s) — the projects
+  // the manager manages. Returns nothing for an empty list.
+  forProjects(projectIds: number[]) {
+    if (projectIds.length === 0) return Promise.resolve([]);
     return this.prisma.ticket.findMany({
-      where: { deletedAt: null, userId },
-      include: {
-        assignees: assigneesInclude,
-        _count: { select: { replies: true } },
-      },
+      where: { deletedAt: null, projectId: { in: projectIds } },
+      include: ticketInclude,
       orderBy: { createdAt: "desc" },
     });
   }
 
-  // A single ticket the given user reported, with its assigned engineers,
-  // replies (oldest first), and diagnostic reports (newest first, each carrying
-  // its author's summary). Scoped to `userId` so a user can only open their own
-  // tickets. Returns null when no such ticket exists.
+  // A user's own submitted tickets (the "user" role surface), with a reply count
+  // for the list and the engineers it is assigned to. Replies are polymorphic
+  // (no ticket relation), so counts are aggregated separately and merged in.
+  async reportedBy(userId: number) {
+    const tickets = await this.prisma.ticket.findMany({
+      where: { deletedAt: null, userId },
+      include: { assignees: assigneesInclude },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const counts = await this.replyCounts(tickets.map((t) => t.id));
+    return tickets.map((ticket) => ({
+      ...ticket,
+      replyCount: counts.get(ticket.id) ?? 0,
+    }));
+  }
+
+  // A single ticket the given user reported, with its assigned engineers and
+  // diagnostic reports (newest first, each carrying its author's summary). Scoped
+  // to `userId` so a user can only open their own tickets. Replies are fetched
+  // separately via replyService (they are polymorphic). Returns null when no
+  // such ticket exists.
   getForReporter(id: number, userId: number) {
     return this.prisma.ticket.findFirst({
       where: { id, userId, deletedAt: null },
       include: {
+        ...reviewerSelect,
         assignees: assigneesInclude,
-        replies: { orderBy: { id: "asc" } },
+        project: { select: { id: true, name: true } },
+        reports: {
+          include: { user: { select: { id: true, name: true } } },
+          orderBy: { createdAt: "desc" },
+        },
+      },
+    });
+  }
+
+  // Full detail for a single ticket — reporter, assigned engineers, and
+  // diagnostic reports (newest first, each carrying its author's summary).
+  // Unscoped: intended for staff (dashboard) surfaces that may open tickets they
+  // did not report. Replies are fetched separately via replyService (they are
+  // polymorphic). Returns null when no such ticket exists.
+  // The reporter's user id for a non-deleted ticket.
+  async reporterUserId(ticketId: number): Promise<number | null> {
+    const ticket = await this.prisma.ticket.findFirst({
+      where: { id: ticketId, deletedAt: null },
+      select: { userId: true },
+    });
+    return ticket?.userId ?? null;
+  }
+
+  getDetail(id: number) {
+    return this.prisma.ticket.findFirst({
+      where: { id, deletedAt: null },
+      include: {
+        ...reviewerSelect,
+        user: { select: { id: true, name: true, username: true } },
+        assignees: assigneesInclude,
+        project: { select: { id: true, name: true } },
         reports: {
           include: { user: { select: { id: true, name: true } } },
           orderBy: { createdAt: "desc" },
@@ -140,12 +199,131 @@ export class TicketService extends Service {
     return [...buckets.values()];
   }
 
-  // Reviewer action: set the full list of software-engineers assigned to a ticket.
-  // The given list replaces any existing assignment (pass [] to clear).
+  // Ticket status counts grouped by company and project within `scope`.
+  async statsByCompanyAndProject(
+    scope: TicketScope,
+  ): Promise<CompanyTicketStats[]> {
+    if (scope.kind === "projects" && scope.projectIds.length === 0) {
+      return [];
+    }
+
+    const tickets = await this.prisma.ticket.findMany({
+      where: this.scopeWhere(scope),
+      select: {
+        status: true,
+        companyId: true,
+        company: { select: { id: true, name: true } },
+        projectId: true,
+        project: {
+          select: {
+            id: true,
+            name: true,
+            company: { select: { id: true, name: true } },
+          },
+        },
+      },
+    });
+
+    const companies = new Map<number | null, CompanyTicketStats>();
+    const projectsByCompany = new Map<
+      number | null,
+      Map<number | null, ProjectTicketStats>
+    >();
+
+    const ensureCompany = (
+      companyId: number | null,
+      companyName: string,
+    ): CompanyTicketStats => {
+      let company = companies.get(companyId);
+      if (!company) {
+        company = {
+          companyId,
+          companyName,
+          stats: this.emptyStats(),
+          projects: [],
+        };
+        companies.set(companyId, company);
+        projectsByCompany.set(companyId, new Map());
+      }
+      return company;
+    };
+
+    const ensureProject = (
+      companyId: number | null,
+      companyName: string,
+      projectId: number | null,
+      projectName: string,
+    ): ProjectTicketStats => {
+      ensureCompany(companyId, companyName);
+      const projectMap = projectsByCompany.get(companyId)!;
+      let project = projectMap.get(projectId);
+      if (!project) {
+        project = { projectId, projectName, stats: this.emptyStats() };
+        projectMap.set(projectId, project);
+      }
+      return project;
+    };
+
+    if (scope.kind === "projects") {
+      const scopedProjects = await this.prisma.project.findMany({
+        where: { id: { in: scope.projectIds } },
+        select: {
+          id: true,
+          name: true,
+          company: { select: { id: true, name: true } },
+        },
+        orderBy: [{ company: { name: "asc" } }, { name: "asc" }],
+      });
+      for (const project of scopedProjects) {
+        ensureProject(
+          project.company.id,
+          project.company.name,
+          project.id,
+          project.name,
+        );
+      }
+    }
+
+    for (const ticket of tickets) {
+      const companyId = ticket.project?.company.id ?? ticket.company?.id ?? null;
+      const companyName =
+        ticket.project?.company.name ?? ticket.company?.name ?? "—";
+      const projectId = ticket.projectId;
+      const projectName = ticket.project?.name ?? "—";
+
+      this.bumpStats(ensureCompany(companyId, companyName).stats, ticket.status);
+      this.bumpStats(
+        ensureProject(companyId, companyName, projectId, projectName).stats,
+        ticket.status,
+      );
+    }
+
+    return [...companies.values()]
+      .map((company) => {
+        const projectMap = projectsByCompany.get(company.companyId)!;
+        company.projects = [...projectMap.values()].sort((a, b) =>
+          a.projectName.localeCompare(b.projectName),
+        );
+        return company;
+      })
+      .sort((a, b) => a.companyName.localeCompare(b.companyName));
+  }
+
+  private emptyStats(): TicketStats {
+    return { total: 0, open: 0, in_progress: 0, closed: 0 };
+  }
+
+  private bumpStats(stats: TicketStats, status: TicketStatus): void {
+    stats[status] += 1;
+    stats.total += 1;
+  }
+
+  // Set the full list of engineers/consultants assigned to a ticket. The given
+  // list replaces any existing assignment (pass [] to clear).
   async assign(input: AssignTicketInput): Promise<Ticket> {
     const { ticketId, assigneeIds } = assignTicketSchema.parse(input);
     const ids = [...new Set(assigneeIds)];
-    await this.assertEngineers(ids);
+    await this.assertAssignableStaff(ids);
 
     return this.prisma.$transaction(async (tx) => {
       await tx.ticketAssignment.deleteMany({ where: { ticketId } });
@@ -162,7 +340,7 @@ export class TicketService extends Service {
   async create(input: CreateTicketInput): Promise<Ticket> {
     const { assigneeIds, ...data } = createTicketSchema.parse(input);
     const ids = assigneeIds ? [...new Set(assigneeIds)] : [];
-    await this.assertEngineers(ids);
+    await this.assertAssignableStaff(ids);
 
     return this.prisma.ticket.create({
       data: {
@@ -172,10 +350,45 @@ export class TicketService extends Service {
     });
   }
 
+  // Reply counts for the given ticket ids, as an id -> count map (tickets with no
+  // replies are absent). Replies are polymorphic, so this aggregates on the
+  // ("ticket", id) entity key rather than a relation.
+  private async replyCounts(ticketIds: number[]): Promise<Map<number, number>> {
+    if (ticketIds.length === 0) return new Map();
+    const grouped = await this.prisma.reply.groupBy({
+      by: ["entityId"],
+      where: { entityType: "ticket", entityId: { in: ticketIds } },
+      _count: { _all: true },
+    });
+    return new Map(grouped.map((row) => [row.entityId, row._count._all]));
+  }
+
   // Updates a ticket's editable fields (title/description/status). Only fields
   // present in `input` are changed.
   async update(id: number, input: UpdateTicketInput): Promise<Ticket> {
     const data = updateTicketSchema.parse(input);
+    return this.prisma.ticket.update({ where: { id }, data });
+  }
+
+  // Sets workflow status and clears the review stamp when moving off "closed".
+  async setStatus(id: number, status: Ticket["status"]): Promise<Ticket> {
+    const current = await this.prisma.ticket.findFirstOrThrow({
+      where: { id, deletedAt: null },
+    });
+    if (status === "open" && current.status === "closed") {
+      return this.reopen(id);
+    }
+    const data: {
+      status: Ticket["status"];
+      reviewerId?: null;
+      reviewedAt?: null;
+      reviewComment?: null;
+    } = { status };
+    if (status !== "closed" && current.status === "closed") {
+      data.reviewerId = null;
+      data.reviewedAt = null;
+      data.reviewComment = null;
+    }
     return this.prisma.ticket.update({ where: { id }, data });
   }
 
@@ -189,30 +402,72 @@ export class TicketService extends Service {
     });
   }
 
+  // Closes a ticket as part of a review: sets the status to "closed" and stamps
+  // the reviewer, the time, and their closing comment. Authorization (admin or
+  // reviewer) is enforced by the caller.
+  async close(id: number, reviewerId: number, comment: string): Promise<Ticket> {
+    return this.prisma.ticket.update({
+      where: { id },
+      data: {
+        status: "closed",
+        reviewerId,
+        reviewedAt: new Date(),
+        reviewComment: comment,
+      },
+    });
+  }
+
+  // Reopens a closed ticket: clears the review stamp and sets the status back to
+  // "open".
+  async reopen(id: number): Promise<Ticket> {
+    return this.prisma.ticket.update({
+      where: { id },
+      data: {
+        status: "open",
+        reviewerId: null,
+        reviewedAt: null,
+        reviewComment: null,
+      },
+    });
+  }
+
+  // Adds a diagnostic report (issue + solution) to a ticket. Authorization (the
+  // assigned engineer or a consultant) is enforced by the caller.
+  async createReport(input: CreateReportInput): Promise<TicketReport> {
+    const data = createReportSchema.parse(input);
+    return this.prisma.ticketReport.create({ data });
+  }
+
   private scopeWhere(scope: TicketScope) {
     const where: {
       deletedAt: null;
       userId?: number;
       assignees?: { some: { assigneeId: number } };
+      projectId?: { in: number[] };
     } = { deletedAt: null };
     if (scope.kind === "assigned")
       where.assignees = { some: { assigneeId: scope.userId } };
     if (scope.kind === "reported") where.userId = scope.userId;
+    if (scope.kind === "projects") where.projectId = { in: scope.projectIds };
     return where;
   }
 
-  // Every assignee must be an existing, non-deleted software-engineer.
-  private async assertEngineers(assigneeIds: number[]): Promise<void> {
+  // Every assignee must be an existing engineer or SAP consultant.
+  private async assertAssignableStaff(assigneeIds: number[]): Promise<void> {
     if (assigneeIds.length === 0) return;
     const found = await this.prisma.user.count({
       where: {
         id: { in: assigneeIds },
         deletedAt: null,
-        role: { name: ENGINEER_ROLE },
+        projectMemberships: {
+          some: { role: { name: { in: [...ASSIGNABLE_ROLES] } } },
+        },
       },
     });
     if (found !== assigneeIds.length) {
-      throw new Error("All assignees must be existing software-engineers");
+      throw new Error(
+        "All assignees must be existing software-engineers or consultants",
+      );
     }
   }
 }

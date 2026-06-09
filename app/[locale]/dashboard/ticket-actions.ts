@@ -2,9 +2,26 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { ticketService } from "@/services";
-import { requireRole } from "@/lib/auth/guards";
+import { attachmentService, ticketService } from "@/services";
+import {
+  canAccessDashboardTicket,
+  canAssignTickets,
+  canChangeTicketStatus,
+  canManageTickets,
+  requireDashboardUser,
+  requireRole,
+} from "@/lib/auth/guards";
+import type { AuthUser } from "@/services";
 import { ticketStatusValues } from "@/services/ticket-service/schemas";
+import { assertValidImages, readImageFiles, saveReportImages } from "@/lib/storage";
+import { ticketNotificationMessages } from "@/lib/notification-messages";
+import {
+  managersAndReviewersUserIds,
+  newAssigneeRecipientIds,
+  NotificationType,
+  projectStaffUserIds,
+  sendTicketNotification,
+} from "@/lib/ticket-notifications";
 
 export type TicketActionState = {
   ok?: boolean;
@@ -49,13 +66,45 @@ function readAssigneeIds(formData: FormData): number[] {
 function revalidate() {
   revalidatePath("/[locale]/dashboard/issues", "page");
   revalidatePath("/[locale]/dashboard/tickets", "page");
+  revalidatePath("/[locale]/dashboard", "layout");
+}
+
+// Also refresh the two ticket-detail pages (dashboard + reporter) after a change
+// that shows there (close/reopen/report).
+function revalidateDetail() {
+  revalidatePath("/[locale]/dashboard/tickets/[id]", "page");
+  revalidatePath("/[locale]/tickets/[id]", "page");
+  revalidatePath("/[locale]/dashboard", "layout");
+}
+
+async function requireTicketForAction(
+  ticketId: number,
+  mode: "manage" | "assign" | "status",
+): Promise<{ user: AuthUser; ticket: NonNullable<Awaited<ReturnType<typeof ticketService.getDetail>>> }> {
+  const user = await requireDashboardUser();
+  const ticket = await ticketService.getDetail(ticketId);
+  if (!ticket) throw new Error("Ticket not found");
+
+  const allowed =
+    mode === "manage"
+      ? canManageTickets(user.role.name)
+      : mode === "assign"
+        ? canAssignTickets(user.role.name)
+        : canChangeTicketStatus(user.role.name);
+  if (!allowed) throw new Error("Forbidden");
+
+  if (!(await canAccessDashboardTicket(user, ticket))) {
+    throw new Error("Forbidden");
+  }
+
+  return { user, ticket };
 }
 
 export async function createTicketAction(
   _prev: TicketActionState,
   formData: FormData,
 ): Promise<TicketActionState> {
-  const me = await requireRole("admin", "reviewer");
+  const me = await requireRole("admin", "manager");
 
   const parsed = createSchema.safeParse({
     title: formData.get("title"),
@@ -84,10 +133,16 @@ export async function updateTicketAction(
   _prev: TicketActionState,
   formData: FormData,
 ): Promise<TicketActionState> {
-  await requireRole("admin", "reviewer");
-
   const id = readId(formData);
   if (!id) return { error: "Invalid ticket" };
+
+  try {
+    await requireTicketForAction(id, "manage");
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Forbidden",
+    };
+  }
 
   const parsed = updateSchema.safeParse({
     title: formData.get("title"),
@@ -105,6 +160,56 @@ export async function updateTicketAction(
   }
 
   revalidate();
+  revalidateDetail();
+  return { ok: true };
+}
+
+const statusSchema = z.object({
+  status: z.enum(ticketStatusValues),
+});
+
+export async function updateTicketStatusAction(
+  _prev: TicketActionState,
+  formData: FormData,
+): Promise<TicketActionState> {
+  const id = readId(formData);
+  if (!id) return { error: "Invalid ticket" };
+
+  let user: AuthUser;
+  let ticket: NonNullable<Awaited<ReturnType<typeof ticketService.getDetail>>>;
+  try {
+    ({ user, ticket } = await requireTicketForAction(id, "status"));
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Forbidden",
+    };
+  }
+
+  const parsed = statusSchema.safeParse({ status: formData.get("status") });
+  if (!parsed.success) {
+    return { fieldErrors: fieldErrorsFrom(parsed.error) };
+  }
+
+  try {
+    await ticketService.setStatus(id, parsed.data.status);
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Failed to save" };
+  }
+
+  const messages = await ticketNotificationMessages();
+  const msg = messages.ticketStatusChanged(id, parsed.data.status);
+  await sendTicketNotification({
+    userIds: await projectStaffUserIds(ticket.projectId),
+    actorId: user.id,
+    type: NotificationType.TicketStatusChanged,
+    title: msg.title,
+    details: msg.details,
+    entityType: "ticket",
+    entityId: id,
+  });
+
+  revalidate();
+  revalidateDetail();
   return { ok: true };
 }
 
@@ -112,20 +217,57 @@ export async function assignTicketAction(
   _prev: TicketActionState,
   formData: FormData,
 ): Promise<TicketActionState> {
-  await requireRole("admin", "reviewer");
-
   const id = readId(formData);
   if (!id) return { error: "Invalid ticket" };
+
+  let user: AuthUser;
+  let ticket: NonNullable<Awaited<ReturnType<typeof ticketService.getDetail>>>;
+  try {
+    ({ user, ticket } = await requireTicketForAction(id, "assign"));
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Forbidden",
+    };
+  }
+
+  const previousIds = ticket.assignees.map((assignee) => assignee.assignee.id);
+  const nextIds = readAssigneeIds(formData);
 
   try {
     await ticketService.assign({
       ticketId: id,
-      assigneeIds: readAssigneeIds(formData),
+      assigneeIds: nextIds,
     });
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : "Failed to assign",
     };
+  }
+
+  const messages = await ticketNotificationMessages();
+  const staffMsg = messages.ticketAssigned(id);
+  await sendTicketNotification({
+    userIds: await projectStaffUserIds(ticket.projectId),
+    actorId: user.id,
+    type: NotificationType.TicketAssigned,
+    title: staffMsg.title,
+    details: staffMsg.details,
+    entityType: "ticket",
+    entityId: id,
+  });
+
+  const newAssignees = await newAssigneeRecipientIds(previousIds, nextIds);
+  if (newAssignees.length > 0) {
+    const assignMsg = messages.ticketAssignedToYou(id);
+    await sendTicketNotification({
+      userIds: newAssignees,
+      actorId: user.id,
+      type: NotificationType.TicketAssignedToYou,
+      title: assignMsg.title,
+      details: assignMsg.details,
+      entityType: "ticket",
+      entityId: id,
+    });
   }
 
   revalidate();
@@ -136,10 +278,16 @@ export async function deleteTicketAction(
   _prev: TicketActionState,
   formData: FormData,
 ): Promise<TicketActionState> {
-  await requireRole("admin", "reviewer");
-
   const id = readId(formData);
   if (!id) return { error: "Invalid ticket" };
+
+  try {
+    await requireTicketForAction(id, "manage");
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Forbidden",
+    };
+  }
 
   try {
     await ticketService.softDelete(id);
@@ -150,5 +298,155 @@ export async function deleteTicketAction(
   }
 
   revalidate();
+  return { ok: true };
+}
+
+const closeSchema = z.object({ comment: z.string().trim().min(1) });
+
+// A reviewer/admin closes a ticket, recording themselves as the reviewer along
+// with the time and their closing comment.
+export async function closeTicketAction(
+  _prev: TicketActionState,
+  formData: FormData,
+): Promise<TicketActionState> {
+  const id = readId(formData);
+  if (!id) return { error: "Invalid ticket" };
+
+  let me: AuthUser;
+  try {
+    ({ user: me } = await requireTicketForAction(id, "manage"));
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Forbidden",
+    };
+  }
+
+  const parsed = closeSchema.safeParse({ comment: formData.get("comment") });
+  if (!parsed.success) {
+    return { fieldErrors: fieldErrorsFrom(parsed.error) };
+  }
+
+  try {
+    await ticketService.close(id, me.id, parsed.data.comment);
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Failed to close" };
+  }
+
+  revalidate();
+  revalidateDetail();
+  return { ok: true };
+}
+
+// A reviewer/admin reopens a closed ticket, clearing the review stamp.
+export async function reopenTicketAction(
+  _prev: TicketActionState,
+  formData: FormData,
+): Promise<TicketActionState> {
+  const id = readId(formData);
+  if (!id) return { error: "Invalid ticket" };
+
+  try {
+    await requireTicketForAction(id, "manage");
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Forbidden",
+    };
+  }
+
+  try {
+    await ticketService.reopen(id);
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Failed to reopen",
+    };
+  }
+
+  revalidate();
+  revalidateDetail();
+  return { ok: true };
+}
+
+const reportSchema = z.object({
+  issue: z.string().min(1),
+  solution: z.string().min(1),
+});
+
+// Adds a diagnostic report (issue + solution, with optional image attachments) to
+// a ticket. Only the assigned software-engineer(s) or a consultant may add one;
+// the author is taken from the session.
+export async function createReportAction(
+  _prev: TicketActionState,
+  formData: FormData,
+): Promise<TicketActionState> {
+  const user = await requireDashboardUser();
+
+  const ticketId = readId(formData);
+  if (!ticketId) return { error: "Invalid ticket" };
+
+  const ticket = await ticketService.getDetail(ticketId);
+  if (!ticket) return { error: "Ticket not found" };
+
+  if (!(await canAccessDashboardTicket(user, ticket))) {
+    return { error: "Ticket not found" };
+  }
+
+  // Authorize: an assigned engineer or an assigned consultant on this ticket.
+  const role = user.role.name;
+  const isAssigned =
+    (role === "software-engineer" || role === "sap-consultant") &&
+    ticket.assignees.some((assignee) => assignee.assignee.id === user.id);
+  if (!isAssigned) {
+    return {
+      error: "Only an assigned engineer or consultant can add reports.",
+    };
+  }
+
+  const parsed = reportSchema.safeParse({
+    issue: formData.get("issue"),
+    solution: formData.get("solution"),
+  });
+  if (!parsed.success) {
+    return { fieldErrors: fieldErrorsFrom(parsed.error) };
+  }
+
+  // Validate attachments before creating the report so a bad upload doesn't leave
+  // a report with broken attachments.
+  const files = readImageFiles(formData);
+  try {
+    assertValidImages(files);
+  } catch (error) {
+    return {
+      fieldErrors: {
+        images: error instanceof Error ? error.message : "Invalid images",
+      },
+    };
+  }
+
+  try {
+    const report = await ticketService.createReport({
+      ticketId,
+      userId: user.id,
+      issue: parsed.data.issue,
+      solution: parsed.data.solution,
+    });
+    const paths = await saveReportImages(report.id, files);
+    await attachmentService.attach("ticket_report", report.id, paths);
+
+    const messages = await ticketNotificationMessages();
+    const msg = messages.ticketReportSubmitted(ticketId);
+    await sendTicketNotification({
+      userIds: await managersAndReviewersUserIds(ticket.projectId),
+      actorId: user.id,
+      type: NotificationType.TicketReportSubmitted,
+      title: msg.title,
+      details: msg.details,
+      entityType: "ticket",
+      entityId: ticketId,
+    });
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Failed to save" };
+  }
+
+  revalidateDetail();
   return { ok: true };
 }

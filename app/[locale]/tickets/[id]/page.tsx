@@ -5,10 +5,16 @@ import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { requireUser } from "@/lib/auth/guards";
-import { imageService, ticketService } from "@/services";
+import { replyAttachmentsMap } from "@/lib/reply-attachments";
+import { reportAttachmentsMap } from "@/lib/report-attachments";
+import { attachmentService, replyService, ticketService } from "@/services";
+import { TicketReports } from "../_components/ticket-reports";
 import { Badge } from "@/components/ui/badge";
 import { TicketsHeader } from "../_components/tickets-header";
+import { ReportAnIssueDialog } from "../_components/report-an-issue-dialog";
 import { TicketDetailSkeleton } from "../_components/tickets-skeletons";
+import { TicketReplies } from "../_components/ticket-replies";
+import { TicketReviewSummary } from "../_components/ticket-review-summary";
 
 function statusVariant(status: string): "secondary" | "default" | "outline" {
   if (status === "open") return "secondary";
@@ -45,7 +51,11 @@ export default async function TicketDetailPage({
 
         {/* Back link + header stay; the ticket body streams in with a skeleton. */}
         <Suspense fallback={<TicketDetailSkeleton />}>
-          <TicketDetail ticketId={ticketId} userId={user.id} />
+          <TicketDetail
+            ticketId={ticketId}
+            userId={user.id}
+            userRole={user.role.name}
+          />
         </Suspense>
       </main>
     </div>
@@ -55,9 +65,11 @@ export default async function TicketDetailPage({
 async function TicketDetail({
   ticketId,
   userId,
+  userRole,
 }: {
   ticketId: number;
   userId: number;
+  userRole: string;
 }) {
   // Scoped to the current user, so opening someone else's (or a missing) ticket
   // 404s rather than leaking it.
@@ -66,7 +78,12 @@ async function TicketDetail({
 
   const t = await getTranslations("Tickets");
   const created = ticket.createdAt.toISOString().slice(0, 10);
-  const images = await imageService.forEntity("ticket", ticket.id);
+  const [images, replies] = await Promise.all([
+    attachmentService.forEntity("ticket", ticket.id),
+    replyService.forEntity("ticket", ticket.id),
+  ]);
+  const attachmentsByReply = await replyAttachmentsMap(replies);
+  const attachmentsByReport = await reportAttachmentsMap(ticket.reports);
 
   return (
     <>
@@ -78,9 +95,12 @@ async function TicketDetail({
               {ticket.title}
             </h1>
           </div>
-          <Badge variant={statusVariant(ticket.status)}>
-            {t(`status.${ticket.status}`)}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant={statusVariant(ticket.status)}>
+              {t(`status.${ticket.status}`)}
+            </Badge>
+            <ReportAnIssueDialog ticketId={ticket.id} />
+          </div>
         </div>
 
         <dl className="mt-4 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
@@ -118,13 +138,13 @@ async function TicketDetail({
               {images.map((image) => (
                 <li key={image.id}>
                   <a
-                    href={image.path}
+                    href={image.url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="block aspect-video overflow-hidden rounded-lg border transition-opacity hover:opacity-90"
                   >
                     <Image
-                      src={image.path}
+                      src={image.url}
                       alt=""
                       width={320}
                       height={180}
@@ -139,79 +159,28 @@ async function TicketDetail({
         )}
       </article>
 
-      <section className="mt-8">
-        <h2 className="mb-3 text-lg font-semibold tracking-tight">
-          {t("replies.title")}
-          {ticket.replies.length > 0 && (
-            <span className="ms-2 text-sm font-normal text-muted-foreground">
-              ({ticket.replies.length})
-            </span>
-          )}
-        </h2>
+      <TicketReviewSummary
+        reviewerName={ticket.reviewer?.name ?? null}
+        reviewedAt={ticket.reviewedAt}
+        comment={ticket.reviewComment}
+      />
 
-        {ticket.replies.length === 0 ? (
-          <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-            {t("replies.empty")}
-          </div>
-        ) : (
-          <ol className="space-y-3">
-            {ticket.replies.map((reply) => (
-              <li
-                key={reply.id}
-                className="rounded-lg border bg-muted/40 p-4 text-sm whitespace-pre-wrap"
-              >
-                {reply.description}
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
+      <TicketReplies
+        ticketId={ticket.id}
+        currentUserId={userId}
+        currentUserRole={userRole}
+        replies={replies}
+        attachmentsByReply={attachmentsByReply}
+      />
 
-      <section className="mt-8">
-        <h2 className="mb-3 text-lg font-semibold tracking-tight">
-          {t("reports.title")}
-          {ticket.reports.length > 0 && (
-            <span className="ms-2 text-sm font-normal text-muted-foreground">
-              ({ticket.reports.length})
-            </span>
-          )}
-        </h2>
-
-        {ticket.reports.length === 0 ? (
-          <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-            {t("reports.empty")}
-          </div>
-        ) : (
-          <ol className="space-y-3">
-            {ticket.reports.map((report) => (
-              <li key={report.id} className="rounded-lg border p-4">
-                <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-                  <span>
-                    {t("reports.by", { name: report.user.name })}
-                  </span>
-                  <span className="tabular-nums">
-                    {report.createdAt.toISOString().slice(0, 10)}
-                  </span>
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-sm font-medium text-muted-foreground">
-                    {t("reports.issue")}
-                  </h3>
-                  <p className="text-sm whitespace-pre-wrap">{report.issue}</p>
-                </div>
-                <div className="mt-3 space-y-1 border-t pt-3">
-                  <h3 className="text-sm font-medium text-muted-foreground">
-                    {t("reports.solution")}
-                  </h3>
-                  <p className="text-sm whitespace-pre-wrap">
-                    {report.solution}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
+      <TicketReports
+        ticketId={ticket.id}
+        reports={ticket.reports}
+        attachmentsByReport={attachmentsByReport}
+        canReplyToReport={false}
+        currentUserId={userId}
+        currentUserRole={userRole}
+      />
     </>
   );
 }

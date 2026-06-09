@@ -34,13 +34,16 @@ export class RoleService extends Service {
     return this.prisma.role.update({ where: { id }, data: { name: parsed } });
   }
 
-  // Deletes a role, but only if no active (non-soft-deleted) users are assigned.
+  // Deletes a role, but only if no project memberships still reference it (roles
+  // are granted per-project via the UserProject join).
   async delete(id: number): Promise<Role> {
-    const assigned = await this.prisma.user.count({
-      where: { roleId: id, deletedAt: null },
+    const assigned = await this.prisma.userProject.count({
+      where: { roleId: id },
     });
     if (assigned > 0) {
-      throw new Error(`Cannot delete role: ${assigned} user(s) still assigned`);
+      throw new Error(
+        `Cannot delete role: ${assigned} project membership(s) still assigned`,
+      );
     }
     return this.prisma.role.delete({ where: { id } });
   }

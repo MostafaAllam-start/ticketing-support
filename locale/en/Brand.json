@@ -1,9 +1,20 @@
 {
-  "name": "ECM Support",
-  "headline": "Support that keeps your team moving.",
-  "tagline": "Track tickets, collaborate on replies, and resolve issues faster — all in one place.",
-  "feature1": "Fast, threaded conversations",
-  "feature2": "Role-based access control",
-  "feature3": "Built to resolve ECM issues",
-  "rights": "© ECM Support. All rights reserved."
+  "ecm": {
+    "name": "ECM Support",
+    "headline": "Support that keeps your team moving.",
+    "tagline": "Track tickets, collaborate on replies, and resolve issues faster — all in one place.",
+    "feature1": "Fast, threaded conversations",
+    "feature2": "Role-based access control",
+    "feature3": "Built to resolve ECM issues",
+    "rights": "© ECM Support. All rights reserved."
+  },
+  "ctc": {
+    "name": "CTC Support",
+    "headline": "Support for CTC's SAP projects.",
+    "tagline": "Report, track, and resolve issues on CTC's SAP projects — all in one place.",
+    "feature1": "Fast, threaded conversations",
+    "feature2": "Role-based access control",
+    "feature3": "Built to support CTC's SAP project",
+    "rights": "© CTC Support. All rights reserved."
+  }
 }

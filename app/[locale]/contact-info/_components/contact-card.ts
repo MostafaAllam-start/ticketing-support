@@ -1,13 +1,13 @@
 // Shared types + helpers for the /contact-info/[user_id] business card page.
 
-// A fully serializable contact, flattened from the user + linked team member +
-// (optionally) the first company the person belongs to.
+// A fully serializable contact, flattened from the user + (optionally) the first
+// company the person belongs to.
 export type ContactCard = {
   id: number;
   name: string;
-  /** Job title / role shown under the name (team-member position takes priority). */
+  /** Job title / role shown under the name. */
   position: string;
-  /** Avatar URL (user image, else the team-member photo). May be empty. */
+  /** Avatar URL (the user's image). May be empty. */
   image: string;
   email: string | null;
   jobTitle: string | null;

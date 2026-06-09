@@ -35,6 +35,23 @@ export class UserProjectService extends Service {
     });
   }
 
+  // Active member user ids on a project whose role name is in `roleNames`.
+  async activeMemberUserIds(
+    projectId: number,
+    roleNames: readonly string[],
+  ): Promise<number[]> {
+    if (roleNames.length === 0) return [];
+    const members = await this.prisma.userProject.findMany({
+      where: {
+        projectId,
+        role: { name: { in: [...roleNames] } },
+        user: { deletedAt: null, isDisabled: false },
+      },
+      select: { userId: true },
+    });
+    return members.map((member) => member.userId);
+  }
+
   // Projects a user belongs to, with the company and the user's project role.
   forUser(userId: number) {
     return this.prisma.userProject.findMany({

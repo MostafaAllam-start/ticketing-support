@@ -4,7 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import { Loader2, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, keepInputOnError } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -70,7 +70,7 @@ function EditTicketDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <form action={formAction} className="grid gap-4">
+        <form action={formAction} onReset={keepInputOnError(state)} className="grid gap-4">
           <input type="hidden" name="id" value={ticket.id} />
           <DialogHeader>
             <DialogTitle>{t("editDialog.title")}</DialogTitle>
@@ -149,7 +149,7 @@ function DeleteTicketDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <form action={formAction} className="grid gap-4">
+        <form action={formAction} onReset={keepInputOnError(state)} className="grid gap-4">
           <input type="hidden" name="id" value={ticket.id} />
           <DialogHeader>
             <DialogTitle>{t("deleteDialog.title")}</DialogTitle>
@@ -183,8 +183,8 @@ export function MyTicketRowActions({ ticket }: { ticket: MyTicketItem }) {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          {/* Rows navigate on click; keep the menu trigger from bubbling so
-              opening the menu doesn't also open the ticket. */}
+          {/* Rows navigate on double-click; keep the menu trigger from bubbling
+              so interacting with the menu doesn't also open the ticket. */}
           <Button
             variant="ghost"
             size="icon-sm"

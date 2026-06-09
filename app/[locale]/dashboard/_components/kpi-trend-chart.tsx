@@ -22,7 +22,13 @@ import type { TicketTrendPoint } from "@/services";
 const SERIES = ["open", "in_progress", "closed"] as const;
 
 // Tickets created per day over the trailing window, stacked by current status.
-export function KpiTrendChart({ data }: { data: TicketTrendPoint[] }) {
+export function KpiTrendChart({
+  data,
+  isGlobal = true,
+}: {
+  data: TicketTrendPoint[];
+  isGlobal?: boolean;
+}) {
   const t = useTranslations("Dashboard");
   const locale = useLocale();
 
@@ -45,7 +51,11 @@ export function KpiTrendChart({ data }: { data: TicketTrendPoint[] }) {
     <Card>
       <CardHeader>
         <CardTitle>{t("kpis.trendTitle")}</CardTitle>
-        <CardDescription>{t("kpis.trendDescription")}</CardDescription>
+        <CardDescription>
+          {isGlobal
+            ? t("kpis.trendDescriptionGlobal")
+            : t("kpis.trendDescriptionScoped")}
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <ChartContainer

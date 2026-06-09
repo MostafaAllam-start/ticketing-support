@@ -3,9 +3,26 @@ import { createPartnerSchema, updatePartnerSchema } from "./schemas";
 import type { CreatePartnerInput, UpdatePartnerInput } from "./types";
 import type { Partner } from "@/app/generated/prisma/client";
 
+// Associated companies, included so the admin table/form can show and preselect
+// them.
+const partnerInclude = {
+  companies: { select: { id: true, name: true } },
+} as const;
+
 export class PartnerService extends Service {
-  list(): Promise<Partner[]> {
-    return this.prisma.partner.findMany({ orderBy: { id: "asc" } });
+  list() {
+    return this.prisma.partner.findMany({
+      include: partnerInclude,
+      orderBy: { id: "asc" },
+    });
+  }
+
+  // Partners featured on a given company's landing page.
+  forCompany(companyId: number): Promise<Partner[]> {
+    return this.prisma.partner.findMany({
+      where: { companies: { some: { id: companyId } } },
+      orderBy: { id: "asc" },
+    });
   }
 
   findById(id: number): Promise<Partner | null> {
@@ -13,15 +30,31 @@ export class PartnerService extends Service {
   }
 
   async create(input: CreatePartnerInput): Promise<Partner> {
-    const data = createPartnerSchema.parse(input);
-    return this.prisma.partner.create({ data });
+    const { companyIds, ...data } = createPartnerSchema.parse(input);
+    return this.prisma.partner.create({
+      data: {
+        ...data,
+        ...(companyIds
+          ? { companies: { connect: companyIds.map((id) => ({ id })) } }
+          : {}),
+      },
+    });
   }
 
-  // Partial update of a partner's fields.
+  // Partial update of a partner's fields. When `companyIds` is provided it
+  // replaces the full set of associated companies (so unchecking removes one).
   async update(id: number, input: UpdatePartnerInput): Promise<Partner> {
-    const data = updatePartnerSchema.parse(input);
+    const { companyIds, ...data } = updatePartnerSchema.parse(input);
     await this.assertExists(id);
-    return this.prisma.partner.update({ where: { id }, data });
+    return this.prisma.partner.update({
+      where: { id },
+      data: {
+        ...data,
+        ...(companyIds
+          ? { companies: { set: companyIds.map((id) => ({ id })) } }
+          : {}),
+      },
+    });
   }
 
   async delete(id: number): Promise<Partner> {

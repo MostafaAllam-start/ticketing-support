@@ -1,10 +1,18 @@
 import { getTranslations } from "next-intl/server";
 import { partnerService } from "@/services";
 import { Card, CardContent } from "@/components/ui/card";
+import type { BrandKey } from "@/lib/companies";
 
-export async function LandingPartners() {
+export async function LandingPartners({
+  brand,
+  companyId,
+}: {
+  brand: BrandKey;
+  companyId: number | null;
+}) {
   const t = await getTranslations("Landing");
-  const partners = await partnerService.list();
+  // Only the partners associated with the company being branded.
+  const partners = companyId ? await partnerService.forCompany(companyId) : [];
 
   return (
     <section id="partners" className="scroll-mt-16 border-b py-20">
@@ -12,7 +20,9 @@ export async function LandingPartners() {
         <h2 className="text-3xl font-semibold tracking-tight">
           {t("partners.title")}
         </h2>
-        <p className="mt-2 text-muted-foreground">{t("partners.subtitle")}</p>
+        <p className="mt-2 text-muted-foreground">
+          {t(`${brand}.partnersSubtitle`)}
+        </p>
 
         {partners.length === 0 ? (
           <p className="mt-10 text-sm text-muted-foreground">

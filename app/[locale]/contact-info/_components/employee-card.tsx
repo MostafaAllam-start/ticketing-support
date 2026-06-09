@@ -160,9 +160,9 @@ export function EmployeeCard({ contact }: { contact: ContactCard }) {
   }
 
   return (
-    <div className="w-full space-y-8 rounded-2xl border bg-card/95 py-8 shadow-xl backdrop-blur-sm">
-      {/* Profile header */}
-      <div className="px-8">
+    <div className="w-full rounded-2xl border bg-card/95 shadow-xl backdrop-blur-sm md:flex md:max-h-[calc(100dvh-6rem)] md:flex-col md:overflow-hidden">
+      {/* Profile header (pinned on md+; the contact info below scrolls) */}
+      <div className="px-8 pt-8 md:shrink-0">
         <div className="flex flex-col items-center gap-4 text-center">
           <div className="rounded-full bg-gradient-to-r from-primary to-primary/60 p-1 shadow-lg">
             <Avatar className="size-28 border-4 border-background">
@@ -179,9 +179,9 @@ export function EmployeeCard({ contact }: { contact: ContactCard }) {
         </div>
       </div>
 
-      <div className="mx-auto w-[95%] border-t-2 border-dashed border-border" />
+      <div className="mx-auto mt-8 w-[95%] border-t-2 border-dashed border-border md:shrink-0" />
 
-      <div className="space-y-6 px-8">
+      <div className="space-y-6 px-8 py-8 md:min-h-0 md:flex-1 md:overflow-y-auto">
         {/* Quick actions */}
         {(contact.email || contact.whatsapp) && (
           <div className="flex justify-center gap-6">
@@ -258,7 +258,11 @@ export function EmployeeCard({ contact }: { contact: ContactCard }) {
           </div>
         )}
 
-        {/* Add to contacts (vCard download) */}
+      </div>
+
+      {/* Add to contacts (vCard download) — pinned at the bottom of the card on
+          md+ so it stays visible while the contact info above scrolls. */}
+      <div className="px-8 pb-8 md:shrink-0">
         <Button
           onClick={downloadVCard}
           size="lg"

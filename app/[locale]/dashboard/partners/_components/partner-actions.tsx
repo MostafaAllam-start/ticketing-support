@@ -4,7 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import { Loader2, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, keepInputOnError } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,11 +30,13 @@ import {
   type ActionState,
 } from "../actions";
 
+export type CompanyOption = { id: number; name: string };
 export type PartnerItem = {
   id: number;
   name: string;
   logo: string;
   details: string;
+  companyIds: number[];
 };
 
 const textareaClass =
@@ -48,11 +50,13 @@ function FieldError({ message }: { message?: string }) {
 function PartnerFormDialog({
   mode,
   partner,
+  companies,
   open,
   onOpenChange,
 }: {
   mode: "add" | "edit";
   partner?: PartnerItem;
+  companies: CompanyOption[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -79,7 +83,7 @@ function PartnerFormDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <form action={formAction} className="grid gap-4">
+        <form action={formAction} onReset={keepInputOnError(state)} className="grid gap-4">
           {mode === "edit" && partner && (
             <input type="hidden" name="id" value={partner.id} />
           )}
@@ -131,6 +135,30 @@ function PartnerFormDialog({
             <FieldError message={state.fieldErrors?.details} />
           </div>
 
+          <div className="space-y-2">
+            <Label>{t("partners.form.companies")}</Label>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {companies.map((company) => (
+                <label
+                  key={company.id}
+                  className="flex items-center gap-2 text-sm"
+                >
+                  <input
+                    type="checkbox"
+                    name="companyIds"
+                    value={company.id}
+                    defaultChecked={partner?.companyIds.includes(company.id)}
+                    className="size-4 rounded border-input"
+                  />
+                  {company.name}
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {t("partners.form.companiesHint")}
+            </p>
+          </div>
+
           <DialogFooter>
             <DialogClose asChild>
               <Button type="button" variant="ghost">
@@ -175,7 +203,7 @@ function DeletePartnerDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <form action={formAction} className="grid gap-4">
+        <form action={formAction} onReset={keepInputOnError(state)} className="grid gap-4">
           <input type="hidden" name="id" value={partner.id} />
           <DialogHeader>
             <DialogTitle>{t("partners.deleteConfirm.title")}</DialogTitle>
@@ -202,7 +230,11 @@ function DeletePartnerDialog({
   );
 }
 
-export function AddPartnerButton() {
+export function AddPartnerButton({
+  companies,
+}: {
+  companies: CompanyOption[];
+}) {
   const t = useTranslations("Dashboard");
   const [open, setOpen] = useState(false);
 
@@ -212,12 +244,23 @@ export function AddPartnerButton() {
         <Plus />
         {t("partners.add")}
       </Button>
-      <PartnerFormDialog mode="add" open={open} onOpenChange={setOpen} />
+      <PartnerFormDialog
+        mode="add"
+        companies={companies}
+        open={open}
+        onOpenChange={setOpen}
+      />
     </>
   );
 }
 
-export function PartnerRowActions({ partner }: { partner: PartnerItem }) {
+export function PartnerRowActions({
+  partner,
+  companies,
+}: {
+  partner: PartnerItem;
+  companies: CompanyOption[];
+}) {
   const t = useTranslations("Dashboard");
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -246,6 +289,7 @@ export function PartnerRowActions({ partner }: { partner: PartnerItem }) {
       <PartnerFormDialog
         mode="edit"
         partner={partner}
+        companies={companies}
         open={editOpen}
         onOpenChange={setEditOpen}
       />

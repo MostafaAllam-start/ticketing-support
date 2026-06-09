@@ -9,10 +9,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ticketService } from "@/services";
-import {
-  TicketRowActions,
-  type EngineerOption,
-} from "./ticket-row-actions";
+import { TicketRowActions, type AssigneeOption } from "./ticket-row-actions";
+import { TicketRow } from "./ticket-row";
 
 // Row shape = whatever the service returns (reporter + assignee summaries included).
 type TicketRow = Awaited<ReturnType<(typeof ticketService)["listAll"]>>[number];
@@ -30,14 +28,21 @@ function statusVariant(status: string): "secondary" | "default" | "outline" {
 
 export async function TicketsTable({
   tickets,
-  canManage = false,
-  engineers = [],
+  canEdit = false,
+  canAssign = false,
+  canDelete = false,
+  canChangeStatus = false,
+  assignees = [],
 }: {
   tickets: TicketRow[];
-  canManage?: boolean;
-  engineers?: EngineerOption[];
+  canEdit?: boolean;
+  canAssign?: boolean;
+  canDelete?: boolean;
+  canChangeStatus?: boolean;
+  assignees?: AssigneeOption[];
 }) {
   const t = await getTranslations("Dashboard");
+  const showActions = canEdit || canAssign || canDelete || canChangeStatus;
 
   if (tickets.length === 0) {
     return (
@@ -58,12 +63,12 @@ export async function TicketsTable({
             <TableHead>{t("tickets.reporter")}</TableHead>
             <TableHead>{t("tickets.assignee")}</TableHead>
             <TableHead>{t("tickets.created")}</TableHead>
-            {canManage && <TableHead className="w-12" />}
+            {showActions && <TableHead className="w-12" />}
           </TableRow>
         </TableHeader>
         <TableBody>
           {tickets.map((ticket) => (
-            <TableRow key={ticket.id}>
+            <TicketRow key={ticket.id} id={ticket.id} label={ticket.title}>
               <TableCell className="text-muted-foreground">
                 #{ticket.id}
               </TableCell>
@@ -86,7 +91,7 @@ export async function TicketsTable({
               <TableCell className="text-muted-foreground tabular-nums">
                 {ticket.createdAt.toISOString().slice(0, 10)}
               </TableCell>
-              {canManage && (
+              {showActions && (
                 <TableCell>
                   <TicketRowActions
                     ticket={{
@@ -96,11 +101,15 @@ export async function TicketsTable({
                       status: ticket.status,
                       assigneeIds: ticket.assignees.map((a) => a.assignee.id),
                     }}
-                    engineers={engineers}
+                    assignees={assignees}
+                    canEdit={canEdit}
+                    canAssign={canAssign}
+                    canDelete={canDelete}
+                    canChangeStatus={canChangeStatus}
                   />
                 </TableCell>
               )}
-            </TableRow>
+            </TicketRow>
           ))}
         </TableBody>
       </Table>

@@ -1,6 +1,7 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { requireRole } from "@/lib/auth/guards";
-import { partnerService } from "@/services";
+import { companyService, partnerService } from "@/services";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -24,7 +25,11 @@ export default async function PartnersPage({
   await requireRole("admin");
   const t = await getTranslations("Dashboard");
 
-  const partners = await partnerService.list();
+  const [partners, companies] = await Promise.all([
+    partnerService.list(),
+    companyService.list(),
+  ]);
+  const companyOptions = companies.map((c) => ({ id: c.id, name: c.name }));
 
   return (
     <div className="space-y-6">
@@ -37,7 +42,7 @@ export default async function PartnersPage({
             {t("partners.subtitle")}
           </p>
         </div>
-        <AddPartnerButton />
+        <AddPartnerButton companies={companyOptions} />
       </div>
 
       {partners.length === 0 ? (
@@ -52,6 +57,7 @@ export default async function PartnersPage({
                 <TableHead className="w-16">{t("partners.logo")}</TableHead>
                 <TableHead>{t("partners.name")}</TableHead>
                 <TableHead>{t("partners.details")}</TableHead>
+                <TableHead>{t("partners.companies")}</TableHead>
                 <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
@@ -72,7 +78,31 @@ export default async function PartnersPage({
                     {partner.details}
                   </TableCell>
                   <TableCell>
-                    <PartnerRowActions partner={partner} />
+                    {partner.companies.length > 0 ? (
+                      <span className="flex flex-wrap gap-1">
+                        {partner.companies.map((company) => (
+                          <Badge key={company.id} variant="secondary">
+                            {company.name}
+                          </Badge>
+                        ))}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        {t("partners.noCompanies")}
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <PartnerRowActions
+                      partner={{
+                        id: partner.id,
+                        name: partner.name,
+                        logo: partner.logo,
+                        details: partner.details,
+                        companyIds: partner.companies.map((c) => c.id),
+                      }}
+                      companies={companyOptions}
+                    />
                   </TableCell>
                 </TableRow>
               ))}

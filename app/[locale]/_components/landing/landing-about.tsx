@@ -1,9 +1,14 @@
 import { CheckCircle2 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
+import type { BrandKey } from "@/lib/companies";
 
-export async function LandingAbout() {
+export async function LandingAbout({ brand }: { brand: BrandKey }) {
   const t = await getTranslations("Landing");
-  const points = [t("about.point1"), t("about.point2"), t("about.point3")];
+  const points = [
+    t(`${brand}.aboutPoint1`),
+    t(`${brand}.aboutPoint2`),
+    t(`${brand}.aboutPoint3`),
+  ];
 
   return (
     <section id="about" className="scroll-mt-16 border-b py-20">
@@ -11,10 +16,10 @@ export async function LandingAbout() {
         <div className="grid gap-10 md:grid-cols-2 md:items-center">
           <div className="space-y-4">
             <h2 className="text-3xl font-semibold tracking-tight">
-              {t("about.title")}
+              {t(`${brand}.aboutTitle`)}
             </h2>
             <p className="text-muted-foreground text-pretty">
-              {t("about.body")}
+              {t(`${brand}.aboutBody`)}
             </p>
           </div>
           <ul className="space-y-3">

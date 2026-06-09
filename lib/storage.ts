@@ -59,3 +59,53 @@ export async function saveImages(files: File[]): Promise<string[]> {
   }
   return paths;
 }
+
+// Reply attachments are grouped per reply under uploads/replies/<replyId>/ and
+// streamed through the /uploads/[...path] route handler (same managed storage dir
+// as ticket images). The reply must already exist so its id can scope the folder.
+const REPLY_DIR = path.join(STORAGE_ROOT, "replies");
+const REPLY_PUBLIC_PREFIX = "/uploads/replies";
+
+export async function saveReplyImages(
+  replyId: number,
+  files: File[],
+): Promise<string[]> {
+  if (files.length === 0) return [];
+  const dir = path.join(REPLY_DIR, String(replyId));
+  await mkdir(dir, { recursive: true });
+
+  const paths: string[] = [];
+  for (const file of files) {
+    const ext = EXT_BY_TYPE[file.type] ?? "bin";
+    const name = `${randomUUID()}.${ext}`;
+    const buffer = Buffer.from(await file.arrayBuffer());
+    await writeFile(path.join(dir, name), buffer);
+    paths.push(`${REPLY_PUBLIC_PREFIX}/${replyId}/${name}`);
+  }
+  return paths;
+}
+
+// Report attachments are grouped per report under uploads/reports/<reportId>/ and
+// streamed through the same /uploads/[...path] handler. The report must already
+// exist so its id can scope the folder.
+const REPORT_DIR = path.join(STORAGE_ROOT, "reports");
+const REPORT_PUBLIC_PREFIX = "/uploads/reports";
+
+export async function saveReportImages(
+  reportId: number,
+  files: File[],
+): Promise<string[]> {
+  if (files.length === 0) return [];
+  const dir = path.join(REPORT_DIR, String(reportId));
+  await mkdir(dir, { recursive: true });
+
+  const paths: string[] = [];
+  for (const file of files) {
+    const ext = EXT_BY_TYPE[file.type] ?? "bin";
+    const name = `${randomUUID()}.${ext}`;
+    const buffer = Buffer.from(await file.arrayBuffer());
+    await writeFile(path.join(dir, name), buffer);
+    paths.push(`${REPORT_PUBLIC_PREFIX}/${reportId}/${name}`);
+  }
+  return paths;
+}

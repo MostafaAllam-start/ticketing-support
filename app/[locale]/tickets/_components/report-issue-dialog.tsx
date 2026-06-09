@@ -4,7 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import { Loader2, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, keepInputOnError } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,7 +21,14 @@ import {
 } from "@/components/ui/dialog";
 import { reportIssue } from "../actions";
 
-export function ReportIssueDialog() {
+export type ReportProjectOption = { id: number; name: string };
+
+export function ReportIssueDialog({
+  projects,
+}: {
+  // When provided (CTC reporters), the reporter must pick a project.
+  projects?: ReportProjectOption[];
+}) {
   const t = useTranslations("Tickets");
   const [open, setOpen] = useState(false);
   const [state, action, pending] = useActionState(reportIssue, {});
@@ -46,11 +53,37 @@ export function ReportIssueDialog() {
         </Button>
       </DialogTrigger>
       <DialogContent>
-        <form action={action} className="grid gap-4">
+        <form action={action} onReset={keepInputOnError(state)} className="grid gap-4">
           <DialogHeader>
             <DialogTitle>{t("report.title")}</DialogTitle>
             <DialogDescription>{t("report.description")}</DialogDescription>
           </DialogHeader>
+
+          {projects && projects.length > 0 && (
+            <div className="space-y-2">
+              <Label htmlFor="ticket-project">{t("report.projectLabel")}</Label>
+              <select
+                id="ticket-project"
+                name="projectId"
+                defaultValue=""
+                aria-invalid={Boolean(state.fieldErrors?.projectId)}
+                required
+                className={cn(
+                  "w-full rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-base outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30",
+                )}
+              >
+                <option value="" disabled>
+                  {t("report.projectPlaceholder")}
+                </option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+              <FieldError message={state.fieldErrors?.projectId} />
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="ticket-title">{t("report.subjectLabel")}</Label>

@@ -14,6 +14,8 @@ const NAMESPACES = [
   "ContactCard",
   "Dashboard",
   "Tickets",
+  "CompanySelect",
+  "Profile",
 ] as const;
 
 export default getRequestConfig(async ({ requestLocale }) => {

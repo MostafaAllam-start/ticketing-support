@@ -1,58 +1,17 @@
 "use server";
 
-import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { teamMemberService } from "@/services";
+import { userService } from "@/services";
 import { requireRole } from "@/lib/auth/guards";
-import { saveUserImage } from "@/lib/uploads";
 
 export type ActionState = {
   ok?: boolean;
   error?: string;
-  fieldErrors?: Record<string, string>;
 };
 
-const fieldsSchema = z.object({
-  name: z.string().min(1),
-  position: z.string().min(1),
-  image: z.string().min(1),
-});
-
-function fieldErrorsFrom(error: z.ZodError): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const issue of error.issues) {
-    const key = issue.path[0];
-    if (typeof key === "string" && out[key] === undefined) {
-      out[key] = issue.message;
-    }
-  }
-  return out;
-}
-
-// "" / missing -> not linked. A positive integer -> link to that user.
 function readUserId(formData: FormData): number | null {
-  const raw = formData.get("userId");
-  if (typeof raw !== "string" || raw.trim() === "") return null;
-  const n = Number(raw);
+  const n = Number(formData.get("userId"));
   return Number.isInteger(n) && n > 0 ? n : null;
-}
-
-function readId(formData: FormData): number | null {
-  const n = Number(formData.get("id"));
-  return Number.isInteger(n) && n > 0 ? n : null;
-}
-
-// Resolve the team member's image. A freshly uploaded file (saved to
-// /public/users-images) wins; otherwise fall back to the existing image carried
-// in `currentImage` (edit mode). Returns "" when neither is present, which the
-// schema then rejects as required. May throw if the upload is an invalid type/size.
-async function resolveImage(formData: FormData): Promise<string> {
-  const file = formData.get("imageFile");
-  if (file instanceof File && file.size > 0) {
-    return saveUserImage(file);
-  }
-  const current = formData.get("currentImage");
-  return typeof current === "string" ? current : "";
 }
 
 // Revalidate both the admin list and the public landing page (which renders the
@@ -62,37 +21,18 @@ function revalidate() {
   revalidatePath("/[locale]", "page");
 }
 
-export async function createTeamMemberAction(
+// Feature an existing user on their company's landing-page team.
+export async function addTeamMemberAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
   await requireRole("admin");
 
-  let image: string;
-  try {
-    image = await resolveImage(formData);
-  } catch (error) {
-    return {
-      fieldErrors: {
-        image: error instanceof Error ? error.message : "Invalid image",
-      },
-    };
-  }
-
-  const parsed = fieldsSchema.safeParse({
-    name: formData.get("name"),
-    position: formData.get("position"),
-    image,
-  });
-  if (!parsed.success) {
-    return { fieldErrors: fieldErrorsFrom(parsed.error) };
-  }
+  const userId = readUserId(formData);
+  if (!userId) return { error: "Invalid user" };
 
   try {
-    await teamMemberService.create({
-      ...parsed.data,
-      userId: readUserId(formData) ?? undefined,
-    });
+    await userService.update(userId, { isTeamMember: true });
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Failed to save" };
   }
@@ -101,61 +41,22 @@ export async function createTeamMemberAction(
   return { ok: true };
 }
 
-export async function updateTeamMemberAction(
+// Remove a user from the landing-page team (their account is untouched).
+export async function removeTeamMemberAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
   await requireRole("admin");
 
-  const id = readId(formData);
-  if (!id) return { error: "Invalid team member" };
+  const userId = readUserId(formData);
+  if (!userId) return { error: "Invalid user" };
 
-  let image: string;
   try {
-    image = await resolveImage(formData);
+    await userService.update(userId, { isTeamMember: false });
   } catch (error) {
     return {
-      fieldErrors: {
-        image: error instanceof Error ? error.message : "Invalid image",
-      },
+      error: error instanceof Error ? error.message : "Failed to remove",
     };
-  }
-
-  const parsed = fieldsSchema.safeParse({
-    name: formData.get("name"),
-    position: formData.get("position"),
-    image,
-  });
-  if (!parsed.success) {
-    return { fieldErrors: fieldErrorsFrom(parsed.error) };
-  }
-
-  try {
-    await teamMemberService.update(id, {
-      ...parsed.data,
-      userId: readUserId(formData),
-    });
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : "Failed to save" };
-  }
-
-  revalidate();
-  return { ok: true };
-}
-
-export async function deleteTeamMemberAction(
-  _prev: ActionState,
-  formData: FormData,
-): Promise<ActionState> {
-  await requireRole("admin");
-
-  const id = readId(formData);
-  if (!id) return { error: "Invalid team member" };
-
-  try {
-    await teamMemberService.delete(id);
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : "Failed to delete" };
   }
 
   revalidate();

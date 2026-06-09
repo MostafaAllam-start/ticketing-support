@@ -10,7 +10,11 @@ export class NotificationService extends Service {
   async create(input: CreateNotificationInput): Promise<Notification> {
     const data = createNotificationSchema.parse(input);
     return this.prisma.notification.create({
-      data: { ...data, entityId: data.entityId ?? null },
+      data: {
+        ...data,
+        entityType: data.entityType ?? null,
+        entityId: data.entityId ?? null,
+      },
     });
   }
 
@@ -29,6 +33,7 @@ export class NotificationService extends Service {
       data: ids.map((userId) => ({
         ...base,
         userId,
+        entityType: base.entityType ?? null,
         entityId: base.entityId ?? null,
       })),
     });

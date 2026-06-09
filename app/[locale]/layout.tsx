@@ -72,6 +72,10 @@ export default async function LocaleLayout({
     >
       <body
         className="flex min-h-full flex-col"
+        // Browser extensions (e.g. ColorZilla's `cz-shortcut-listen`) inject
+        // attributes onto <body> before hydration; suppress the resulting
+        // server/client attribute mismatch warning.
+        suppressHydrationWarning
         style={
           isArabic
             ? {

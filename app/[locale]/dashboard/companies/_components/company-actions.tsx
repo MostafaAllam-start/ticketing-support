@@ -23,6 +23,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { keepInputOnError } from "@/lib/utils";
+import { isSeededCompany } from "@/lib/companies";
 import {
   createCompanyAction,
   deleteCompanyAction,
@@ -55,6 +57,8 @@ function CompanyFormDialog({
 }) {
   const t = useTranslations("Dashboard");
   const action = mode === "add" ? createCompanyAction : updateCompanyAction;
+  // Seeded companies (ECM/CTC) keep their name; only logo + website are editable.
+  const nameLocked = mode === "edit" && isSeededCompany(company?.name);
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
     action,
     {},
@@ -76,7 +80,7 @@ function CompanyFormDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <form action={formAction} className="grid gap-4">
+        <form action={formAction} onReset={keepInputOnError(state)} className="grid gap-4">
           {mode === "edit" && company && (
             <input type="hidden" name="id" value={company.id} />
           )}
@@ -98,9 +102,17 @@ function CompanyFormDialog({
               name="name"
               defaultValue={company?.name}
               aria-invalid={Boolean(state.fieldErrors?.name)}
+              readOnly={nameLocked}
+              className={nameLocked ? "bg-muted text-muted-foreground" : undefined}
               required
             />
-            <FieldError message={state.fieldErrors?.name} />
+            {nameLocked ? (
+              <p className="text-xs text-muted-foreground">
+                {t("companies.form.nameLocked")}
+              </p>
+            ) : (
+              <FieldError message={state.fieldErrors?.name} />
+            )}
           </div>
 
           <div className="space-y-2">
@@ -181,7 +193,7 @@ function DeleteCompanyDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <form action={formAction} className="grid gap-4">
+        <form action={formAction} onReset={keepInputOnError(state)} className="grid gap-4">
           <input type="hidden" name="id" value={company.id} />
           <DialogHeader>
             <DialogTitle>{t("companies.deleteConfirm.title")}</DialogTitle>
@@ -227,6 +239,8 @@ export function CompanyRowActions({ company }: { company: CompanyItem }) {
   const t = useTranslations("Dashboard");
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  // Seeded companies (ECM/CTC) can be edited but never deleted.
+  const deletable = !isSeededCompany(company.name);
 
   return (
     <>
@@ -242,13 +256,15 @@ export function CompanyRowActions({ company }: { company: CompanyItem }) {
             <Pencil />
             {t("companies.edit")}
           </DropdownMenuItem>
-          <DropdownMenuItem
-            variant="destructive"
-            onSelect={() => setDeleteOpen(true)}
-          >
-            <Trash2 />
-            {t("companies.delete")}
-          </DropdownMenuItem>
+          {deletable && (
+            <DropdownMenuItem
+              variant="destructive"
+              onSelect={() => setDeleteOpen(true)}
+            >
+              <Trash2 />
+              {t("companies.delete")}
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -258,11 +274,13 @@ export function CompanyRowActions({ company }: { company: CompanyItem }) {
         open={editOpen}
         onOpenChange={setEditOpen}
       />
-      <DeleteCompanyDialog
-        company={company}
-        open={deleteOpen}
-        onOpenChange={setDeleteOpen}
-      />
+      {deletable && (
+        <DeleteCompanyDialog
+          company={company}
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+        />
+      )}
     </>
   );
 }

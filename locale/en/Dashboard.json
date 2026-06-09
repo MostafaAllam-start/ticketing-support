@@ -7,8 +7,12 @@
     "teamMembers": "Team Members",
     "partners": "Partners",
     "companies": "Companies",
+    "projects": "Projects",
+    "complaints": "Complaints",
+    "suggestions": "Suggestions",
     "myTickets": "My Tickets",
-    "reportedTickets": "Reported Tickets"
+    "reportedTickets": "Reported Tickets",
+    "projectTickets": "Project Tickets"
   },
   "kpis": {
     "title": "KPIs",
@@ -18,9 +22,17 @@
     "inProgress": "In progress",
     "closed": "Closed",
     "statusTitle": "Tickets by status",
-    "statusDescription": "Current breakdown of all tickets.",
+    "statusDescriptionGlobal": "Current breakdown of all tickets in the system.",
+    "statusDescriptionScoped": "Current breakdown of tickets in your projects.",
     "trendTitle": "Tickets created",
-    "trendDescription": "New tickets per day over the last 30 days."
+    "trendDescriptionGlobal": "New tickets per day over the last 30 days across the system.",
+    "trendDescriptionScoped": "New tickets per day over the last 30 days in your projects.",
+    "projectsTitle": "Tickets by company & project",
+    "projectsDescriptionGlobal": "Status counts for every company and project in the system.",
+    "projectsDescriptionScoped": "Status counts for the companies and projects you belong to.",
+    "projectsEmpty": "No ticket data to show for your projects.",
+    "project": "Project",
+    "noProject": "No project"
   },
   "users": {
     "title": "Users",
@@ -39,6 +51,19 @@
     "edit": "Edit",
     "disable": "Disable",
     "enable": "Enable",
+    "companies": "Companies",
+    "noCompanies": "—",
+    "details": {
+      "title": "User details",
+      "hint": "Double-click a row to see full details.",
+      "jobTitle": "Job title",
+      "companies": "Companies",
+      "teamMember": "Team member",
+      "contactCard": "Contact card",
+      "yes": "Yes",
+      "no": "No",
+      "none": "—"
+    },
     "form": {
       "addTitle": "Create user",
       "editTitle": "Edit user",
@@ -46,7 +71,11 @@
       "name": "Name",
       "username": "Username",
       "email": "Email",
-      "role": "Role",
+      "admin": "Administrator",
+      "adminHint": "Full access to every company and all management.",
+      "adminLocked": "The default admin can't be demoted.",
+      "dashboard": "Dashboard access",
+      "dashboardHint": "Allow this user to open the staff dashboard.",
       "jobTitle": "Job title",
       "image": "Photo",
       "imageHint": "Drag & drop an image here, or click to browse",
@@ -83,44 +112,37 @@
   },
   "teamMembers": {
     "title": "Team Members",
-    "subtitle": "Manage the team shown on the landing page.",
+    "subtitle": "Choose which users appear in the landing page team section.",
     "image": "Photo",
     "name": "Name",
     "position": "Position",
-    "user": "Linked user",
-    "none": "—",
+    "company": "Company",
+    "noPosition": "—",
+    "noCompany": "—",
     "add": "Add member",
-    "edit": "Edit",
-    "delete": "Delete",
+    "remove": "Remove from team",
     "actions": "Actions",
     "empty": "No team members yet.",
     "form": {
       "addTitle": "Add team member",
-      "editTitle": "Edit team member",
-      "description": "Details shown in the public team section.",
-      "name": "Name",
-      "position": "Position",
-      "image": "Photo",
-      "imageHint": "Drag & drop an image here, or click to browse",
-      "imageTypes": "PNG, JPG, WEBP or GIF · up to 5 MB",
-      "imageRemove": "Remove image",
-      "user": "Linked user (optional)",
-      "userNone": "None",
+      "description": "Feature an existing user in their company's landing page team.",
+      "user": "User",
+      "userPlaceholder": "Select a user",
+      "noCandidates": "All users are already on the team.",
       "cancel": "Cancel",
-      "save": "Save",
+      "save": "Add",
       "saving": "Saving…"
     },
-    "deleteConfirm": {
-      "title": "Delete team member",
-      "description": "This removes {name} from the team. This cannot be undone.",
+    "removeConfirm": {
+      "title": "Remove from team",
+      "description": "This removes {name} from the landing page team. Their account is not affected.",
       "cancel": "Cancel",
-      "confirm": "Delete",
-      "deleting": "Deleting…"
+      "confirm": "Remove",
+      "removing": "Removing…"
     },
     "toast": {
-      "created": "Team member added.",
-      "updated": "Team member updated.",
-      "deleted": "Team member deleted."
+      "added": "Added to the team.",
+      "removed": "Removed from the team."
     }
   },
   "partners": {
@@ -129,6 +151,8 @@
     "logo": "Logo",
     "name": "Name",
     "details": "Details",
+    "companies": "Companies",
+    "noCompanies": "—",
     "add": "Add partner",
     "edit": "Edit",
     "delete": "Delete",
@@ -141,6 +165,8 @@
       "name": "Name",
       "logo": "Logo URL",
       "details": "Details",
+      "companies": "Companies",
+      "companiesHint": "The partner appears on the landing page of each selected company.",
       "cancel": "Cancel",
       "save": "Save",
       "saving": "Saving…"
@@ -174,6 +200,7 @@
       "editTitle": "Edit company",
       "description": "Companies that own projects in the workspace.",
       "name": "Name",
+      "nameLocked": "This company's name can't be changed.",
       "logo": "Logo",
       "logoHint": "Drag & drop an image here, or click to browse",
       "logoTypes": "PNG, JPG, WEBP or GIF · up to 5 MB",
@@ -210,9 +237,14 @@
     "new": "New ticket",
     "actions": "Actions",
     "edit": "Edit",
-    "assign": "Assign engineers",
+    "assign": "Assign staff",
+    "changeStatus": "Change status",
     "delete": "Delete",
-    "noEngineers": "No software-engineers available.",
+    "noAssignees": "No engineers or consultants available.",
+    "assigneeRoles": {
+      "engineer": "Engineer",
+      "consultant": "Consultant"
+    },
     "form": {
       "addTitle": "New ticket",
       "editTitle": "Edit ticket",
@@ -222,14 +254,21 @@
       "descLabel": "Description",
       "descPlaceholder": "Describe the issue and any relevant context.",
       "status": "Status",
-      "assignees": "Assign to engineers",
+      "assignees": "Assign to engineers or consultants",
       "cancel": "Cancel",
       "save": "Save",
       "saving": "Saving…"
     },
     "assignDialog": {
-      "title": "Assign engineers",
-      "description": "Choose one or more software-engineers to handle this ticket.",
+      "title": "Assign staff",
+      "description": "Choose one or more engineers or consultants to handle this ticket.",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving…"
+    },
+    "statusDialog": {
+      "title": "Change status",
+      "description": "Set the ticket to open, in progress, or closed.",
       "cancel": "Cancel",
       "save": "Save",
       "saving": "Saving…"
@@ -245,7 +284,159 @@
       "created": "Ticket created.",
       "updated": "Ticket updated.",
       "deleted": "Ticket deleted.",
-      "assigned": "Assignment updated."
+      "assigned": "Assignment updated.",
+      "statusUpdated": "Status updated."
+    }
+  },
+  "projects": {
+    "title": "Projects",
+    "subtitle": "Manage projects, assign a manager, and add reviewers and consultants.",
+    "name": "Name",
+    "company": "Company",
+    "location": "Location",
+    "manager": "Manager",
+    "noManager": "No manager",
+    "add": "Add project",
+    "details": "Details",
+    "edit": "Edit",
+    "manageMembers": "Manage members",
+    "delete": "Delete",
+    "actions": "Actions",
+    "empty": "No projects yet.",
+    "detail": {
+      "back": "Back to projects",
+      "membersTitle": "Members",
+      "membersEmpty": "No members assigned yet.",
+      "ticketsTitle": "Tickets",
+      "ticketsEmpty": "No tickets yet.",
+      "ticketTitle": "Title",
+      "ticketStatus": "Status",
+      "ticketCreated": "Created"
+    },
+    "form": {
+      "addTitle": "Add project",
+      "editTitle": "Edit project",
+      "description": "Projects belong to a company and can have a manager.",
+      "name": "Name",
+      "location": "Location",
+      "company": "Company",
+      "companyPlaceholder": "Select a company",
+      "manager": "Manager",
+      "noManager": "No manager",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving…"
+    },
+    "members": {
+      "column": "Members",
+      "title": "Members of {name}",
+      "description": "Reviewers and consultants assigned to this project.",
+      "empty": "No members yet.",
+      "user": "User",
+      "userPlaceholder": "Select a user",
+      "role": "Role",
+      "rolePlaceholder": "Select a role",
+      "add": "Add member",
+      "remove": "Remove",
+      "added": "Member added.",
+      "removed": "Member removed."
+    },
+    "deleteConfirm": {
+      "title": "Delete project",
+      "description": "This removes {name} and its memberships. This cannot be undone.",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "deleting": "Deleting…"
+    },
+    "toast": {
+      "created": "Project added.",
+      "updated": "Project updated.",
+      "deleted": "Project deleted."
+    }
+  },
+  "complaints": {
+    "heading": "Complaints",
+    "subtitle": "Issues reporters raised about how their tickets were handled.",
+    "backToList": "Back to complaints",
+    "id": "ID",
+    "titleLabel": "Title",
+    "detailsLabel": "Details",
+    "ticket": "Ticket",
+    "author": "Reported by",
+    "created": "Created",
+    "attachments": "Attachments",
+    "empty": "No complaints yet."
+  },
+  "suggestions": {
+    "heading": "Suggestions",
+    "subtitle": "Improvement ideas submitted by the team.",
+    "id": "ID",
+    "create": "Suggest",
+    "title": "Submit a suggestion",
+    "description": "Share an idea to improve the system.",
+    "projectLabel": "Project (optional)",
+    "projectPlaceholder": "No specific project",
+    "titleLabel": "Title",
+    "detailsLabel": "Details",
+    "attachments": "Attachments (optional)",
+    "attachmentsHint": "Drag & drop images here, or click to browse",
+    "attachmentsTypes": "PNG, JPG, WebP or GIF · up to 5 MB each",
+    "removeImage": "Remove image",
+    "submit": "Submit",
+    "submitting": "Submitting…",
+    "cancel": "Cancel",
+    "success": "Suggestion submitted.",
+    "author": "Author",
+    "created": "Created",
+    "empty": "No suggestions yet.",
+    "actions": "Actions",
+    "open": "Open details",
+    "delete": "Delete",
+    "deleteConfirm": {
+      "title": "Delete suggestion",
+      "description": "This permanently removes “{title}” and its replies. This cannot be undone.",
+      "confirm": "Delete",
+      "deleting": "Deleting…",
+      "cancel": "Cancel"
+    },
+    "toast": {
+      "deleted": "Suggestion deleted."
+    },
+    "detail": {
+      "back": "Back to suggestions",
+      "author": "Author",
+      "created": "Created",
+      "company": "Company",
+      "project": "Project",
+      "noProject": "No specific project",
+      "details": "Details",
+      "attachments": "Attachments"
+    },
+    "replies": {
+      "title": "Replies",
+      "empty": "No replies yet.",
+      "placeholder": "Write a reply…",
+      "replyPlaceholder": "Write a reply…",
+      "send": "Send",
+      "sending": "Sending…",
+      "reply": "Reply",
+      "delete": "Delete",
+      "deleted": "Reply deleted.",
+      "you": "You",
+      "deleteConfirm": {
+        "title": "Delete reply",
+        "description": "This removes the reply (and any replies to it). This cannot be undone.",
+        "confirm": "Delete",
+        "deleting": "Deleting…",
+        "cancel": "Cancel"
+      },
+      "roles": {
+        "admin": "Admin",
+        "reviewer": "Reviewer",
+        "manager": "Manager",
+        "software-engineer": "Engineer",
+        "user": "User"
+      }
     }
   },
   "status": {
@@ -256,7 +447,45 @@
   "notifications": {
     "title": "Notifications",
     "empty": "You're all caught up.",
-    "viewAll": "View all"
+    "viewAll": "View all",
+    "events": {
+      "ticketCreated": {
+        "title": "New ticket: {title}",
+        "details": "A reporter filed a new ticket: {title}"
+      },
+      "ticketReply": {
+        "title": "{name} replied on ticket #{id}",
+        "details": "{name} posted a new message on ticket #{id}"
+      },
+      "ticketStatusChanged": {
+        "title": "Ticket #{id} status updated",
+        "details": "Ticket #{id} is now {status}"
+      },
+      "ticketAssigned": {
+        "title": "Ticket #{id} assignees updated",
+        "details": "Assignees were changed on ticket #{id}"
+      },
+      "ticketAssignedToYou": {
+        "title": "You were assigned to ticket #{id}",
+        "details": "You have been assigned to work on ticket #{id}"
+      },
+      "ticketReportSubmitted": {
+        "title": "New report on ticket #{id}",
+        "details": "An engineer or consultant submitted a diagnostic report on ticket #{id}"
+      },
+      "ticketReportReply": {
+        "title": "New reply on a report (ticket #{id})",
+        "details": "Someone replied to a diagnostic report on ticket #{id}"
+      },
+      "complaintSubmitted": {
+        "title": "New complaint on ticket #{id}",
+        "details": "A reporter filed a complaint about ticket #{id}"
+      },
+      "suggestionCreated": {
+        "title": "New suggestion: {title}",
+        "details": "A user submitted a new suggestion: {title}"
+      }
+    }
   },
   "account": "Account",
   "logout": "Log out",

@@ -1,14 +1,13 @@
 import type { PrismaClient, Role } from "../../app/generated/prisma/client";
 
-// The roles in the system. "user" is assigned to any newly registered account
-// by default (enforced in the registration flow); the others are granted
-// explicitly.
+// The roles that can be granted to a user within a project (via UserProject).
+// Admin is not here — it is the global `isAdmin` flag on User; a plain customer
+// is simply a user with no project membership.
 export const ROLE_NAMES = [
   "software-engineer",
   "reviewer",
-  "user",
-  "admin",
   "sap-consultant",
+  "manager",
 ] as const;
 
 export type RoleName = (typeof ROLE_NAMES)[number];

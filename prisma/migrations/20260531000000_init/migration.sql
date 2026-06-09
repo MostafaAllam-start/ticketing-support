@@ -23,7 +23,8 @@ CREATE TABLE "users" (
     "email" TEXT NOT NULL,
     "password" TEXT NOT NULL,
     "image" TEXT,
-    "role_id" INTEGER NOT NULL,
+    "is_admin" BOOLEAN NOT NULL DEFAULT false,
+    "can_access_dashboard" BOOLEAN NOT NULL DEFAULT false,
     "job_title" TEXT,
     "is_disabled" BOOLEAN NOT NULL DEFAULT false,
 
@@ -73,9 +74,6 @@ CREATE UNIQUE INDEX "users_username_key" ON "users"("username");
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 
 -- CreateIndex
-CREATE INDEX "users_role_id_idx" ON "users"("role_id");
-
--- CreateIndex
 CREATE INDEX "tickets_user_id_idx" ON "tickets"("user_id");
 
 -- CreateIndex
@@ -86,9 +84,6 @@ CREATE INDEX "replies_parent_reply_id_idx" ON "replies"("parent_reply_id");
 
 -- CreateIndex
 CREATE INDEX "images_entity_type_entity_id_idx" ON "images"("entity_type", "entity_id");
-
--- AddForeignKey
-ALTER TABLE "users" ADD CONSTRAINT "users_role_id_fkey" FOREIGN KEY ("role_id") REFERENCES "roles"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "tickets" ADD CONSTRAINT "tickets_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

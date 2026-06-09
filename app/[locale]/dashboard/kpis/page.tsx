@@ -1,8 +1,9 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { requireDashboardUser } from "@/lib/auth/guards";
+import { requireDashboardUser, ticketScopeForUser } from "@/lib/auth/guards";
+import { UserRole } from "@/lib/auth/roles";
 import { ticketService } from "@/services";
-import type { TicketScope } from "@/services";
 import { KpiCards } from "../_components/kpi-cards";
+import { KpiProjectBreakdown } from "../_components/kpi-project-breakdown";
 import { KpiStatusChart } from "../_components/kpi-status-chart";
 import { KpiTrendChart } from "../_components/kpi-trend-chart";
 
@@ -16,14 +17,12 @@ export default async function KpisPage({
   const user = await requireDashboardUser();
   const t = await getTranslations("Dashboard");
 
-  // Engineer: metrics over assigned tickets. Admin + reviewer: global reported queue.
-  const scope: TicketScope =
-    user.role.name === "software-engineer"
-      ? { kind: "assigned", userId: user.id }
-      : { kind: "all" };
-  const [stats, trend] = await Promise.all([
+  const scope = ticketScopeForUser(user);
+  const isGlobal = user.userRole === UserRole.Admin;
+  const [stats, trend, projectGroups] = await Promise.all([
     ticketService.stats(scope),
     ticketService.createdTrend(scope, 30),
+    ticketService.statsByCompanyAndProject(scope),
   ]);
 
   return (
@@ -36,11 +35,12 @@ export default async function KpisPage({
       </div>
       <KpiCards stats={stats} />
       <div className="grid gap-4 lg:grid-cols-3">
-        <KpiStatusChart stats={stats} />
+        <KpiStatusChart stats={stats} isGlobal={isGlobal} />
         <div className="lg:col-span-2">
-          <KpiTrendChart data={trend} />
+          <KpiTrendChart data={trend} isGlobal={isGlobal} />
         </div>
       </div>
+      <KpiProjectBreakdown groups={projectGroups} isGlobal={isGlobal} />
     </div>
   );
 }

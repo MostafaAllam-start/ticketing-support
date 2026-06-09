@@ -7,8 +7,12 @@
     "teamMembers": "أعضاء الفريق",
     "partners": "الشركاء",
     "companies": "الشركات",
+    "projects": "المشاريع",
+    "complaints": "الشكاوى",
+    "suggestions": "الاقتراحات",
     "myTickets": "تذاكري",
-    "reportedTickets": "التذاكر المُبلّغ عنها"
+    "reportedTickets": "التذاكر المُبلّغ عنها",
+    "projectTickets": "تذاكر المشروع"
   },
   "kpis": {
     "title": "مؤشرات الأداء",
@@ -18,9 +22,17 @@
     "inProgress": "قيد التنفيذ",
     "closed": "مغلقة",
     "statusTitle": "التذاكر حسب الحالة",
-    "statusDescription": "التوزيع الحالي لجميع التذاكر.",
+    "statusDescriptionGlobal": "التوزيع الحالي لجميع التذاكر في النظام.",
+    "statusDescriptionScoped": "التوزيع الحالي للتذاكر في مشاريعك.",
     "trendTitle": "التذاكر المُنشأة",
-    "trendDescription": "التذاكر الجديدة يوميًا خلال آخر 30 يومًا."
+    "trendDescriptionGlobal": "التذاكر الجديدة يوميًا خلال آخر 30 يومًا في النظام.",
+    "trendDescriptionScoped": "التذاكر الجديدة يوميًا خلال آخر 30 يومًا في مشاريعك.",
+    "projectsTitle": "التذاكر حسب الشركة والمشروع",
+    "projectsDescriptionGlobal": "أعداد الحالات لكل شركة ومشروع في النظام.",
+    "projectsDescriptionScoped": "أعداد الحالات للشركات والمشاريع التي تنتمي إليها.",
+    "projectsEmpty": "لا توجد بيانات تذاكر لعرضها لمشاريعك.",
+    "project": "المشروع",
+    "noProject": "بدون مشروع"
   },
   "users": {
     "title": "المستخدمون",
@@ -28,7 +40,7 @@
     "name": "الاسم",
     "username": "اسم المستخدم",
     "email": "البريد الإلكتروني",
-    "role": "الدور",
+    "role": "الصلاحية",
     "status": "الحالة",
     "active": "نشط",
     "disabled": "معطّل",
@@ -39,6 +51,19 @@
     "edit": "تعديل",
     "disable": "تعطيل",
     "enable": "تفعيل",
+    "companies": "الشركات",
+    "noCompanies": "—",
+    "details": {
+      "title": "تفاصيل المستخدم",
+      "hint": "انقر نقرًا مزدوجًا على الصف لعرض كامل التفاصيل.",
+      "jobTitle": "المسمى الوظيفي",
+      "companies": "الشركات",
+      "teamMember": "عضو فريق",
+      "contactCard": "بطاقة التواصل",
+      "yes": "نعم",
+      "no": "لا",
+      "none": "—"
+    },
     "form": {
       "addTitle": "إنشاء مستخدم",
       "editTitle": "تعديل المستخدم",
@@ -46,7 +71,11 @@
       "name": "الاسم",
       "username": "اسم المستخدم",
       "email": "البريد الإلكتروني",
-      "role": "الدور",
+      "admin": "مسؤول",
+      "adminHint": "وصول كامل لكل الشركات وجميع الإدارة.",
+      "adminLocked": "لا يمكن إلغاء صلاحية المسؤول الافتراضي.",
+      "dashboard": "الوصول إلى لوحة التحكم",
+      "dashboardHint": "السماح لهذا المستخدم بفتح لوحة تحكم الموظفين.",
       "jobTitle": "المسمى الوظيفي",
       "image": "الصورة",
       "imageHint": "اسحب وأفلت صورة هنا، أو انقر للتصفّح",
@@ -83,44 +112,37 @@
   },
   "teamMembers": {
     "title": "أعضاء الفريق",
-    "subtitle": "إدارة الفريق المعروض في الصفحة الرئيسية.",
+    "subtitle": "اختر المستخدمين الذين يظهرون في قسم الفريق بالصفحة الرئيسية.",
     "image": "الصورة",
     "name": "الاسم",
     "position": "المنصب",
-    "user": "المستخدم المرتبط",
-    "none": "—",
+    "company": "الشركة",
+    "noPosition": "—",
+    "noCompany": "—",
     "add": "إضافة عضو",
-    "edit": "تعديل",
-    "delete": "حذف",
+    "remove": "إزالة من الفريق",
     "actions": "إجراءات",
     "empty": "لا يوجد أعضاء فريق بعد.",
     "form": {
       "addTitle": "إضافة عضو فريق",
-      "editTitle": "تعديل عضو الفريق",
-      "description": "التفاصيل المعروضة في قسم الفريق العام.",
-      "name": "الاسم",
-      "position": "المنصب",
-      "image": "الصورة",
-      "imageHint": "اسحب وأفلت صورة هنا، أو انقر للتصفّح",
-      "imageTypes": "PNG أو JPG أو WEBP أو GIF · حتى 5 ميجابايت",
-      "imageRemove": "إزالة الصورة",
-      "user": "المستخدم المرتبط (اختياري)",
-      "userNone": "بدون",
+      "description": "اعرض مستخدمًا موجودًا ضمن فريق شركته في الصفحة الرئيسية.",
+      "user": "المستخدم",
+      "userPlaceholder": "اختر مستخدمًا",
+      "noCandidates": "جميع المستخدمين موجودون بالفعل في الفريق.",
       "cancel": "إلغاء",
-      "save": "حفظ",
+      "save": "إضافة",
       "saving": "جارٍ الحفظ…"
     },
-    "deleteConfirm": {
-      "title": "حذف عضو الفريق",
-      "description": "سيؤدي هذا إلى إزالة {name} من الفريق. لا يمكن التراجع عن ذلك.",
+    "removeConfirm": {
+      "title": "إزالة من الفريق",
+      "description": "سيؤدي هذا إلى إزالة {name} من فريق الصفحة الرئيسية. لن يتأثر حسابه.",
       "cancel": "إلغاء",
-      "confirm": "حذف",
-      "deleting": "جارٍ الحذف…"
+      "confirm": "إزالة",
+      "removing": "جارٍ الإزالة…"
     },
     "toast": {
-      "created": "تمت إضافة عضو الفريق.",
-      "updated": "تم تحديث عضو الفريق.",
-      "deleted": "تم حذف عضو الفريق."
+      "added": "تمت الإضافة إلى الفريق.",
+      "removed": "تمت الإزالة من الفريق."
     }
   },
   "partners": {
@@ -129,6 +151,8 @@
     "logo": "الشعار",
     "name": "الاسم",
     "details": "التفاصيل",
+    "companies": "الشركات",
+    "noCompanies": "—",
     "add": "إضافة شريك",
     "edit": "تعديل",
     "delete": "حذف",
@@ -141,6 +165,8 @@
       "name": "الاسم",
       "logo": "رابط الشعار",
       "details": "التفاصيل",
+      "companies": "الشركات",
+      "companiesHint": "يظهر الشريك في الصفحة الرئيسية لكل شركة محددة.",
       "cancel": "إلغاء",
       "save": "حفظ",
       "saving": "جارٍ الحفظ…"
@@ -172,6 +198,7 @@
     "form": {
       "addTitle": "إضافة شركة",
       "editTitle": "تعديل الشركة",
+      "nameLocked": "لا يمكن تغيير اسم هذه الشركة.",
       "description": "الشركات المالكة للمشاريع في مساحة العمل.",
       "name": "الاسم",
       "logo": "الشعار",
@@ -210,9 +237,14 @@
     "new": "تذكرة جديدة",
     "actions": "إجراءات",
     "edit": "تعديل",
-    "assign": "إسناد المهندسين",
+    "assign": "إسناد الموظفين",
+    "changeStatus": "تغيير الحالة",
     "delete": "حذف",
-    "noEngineers": "لا يوجد مهندسو برمجيات متاحون.",
+    "noAssignees": "لا يوجد مهندسون أو مستشارون متاحون.",
+    "assigneeRoles": {
+      "engineer": "مهندس",
+      "consultant": "مستشار"
+    },
     "form": {
       "addTitle": "تذكرة جديدة",
       "editTitle": "تعديل التذكرة",
@@ -222,14 +254,21 @@
       "descLabel": "الوصف",
       "descPlaceholder": "صف المشكلة وأي سياق ذي صلة.",
       "status": "الحالة",
-      "assignees": "الإسناد إلى المهندسين",
+      "assignees": "الإسناد إلى المهندسين أو المستشارين",
       "cancel": "إلغاء",
       "save": "حفظ",
       "saving": "جارٍ الحفظ…"
     },
     "assignDialog": {
-      "title": "إسناد المهندسين",
-      "description": "اختر مهندس برمجيات واحدًا أو أكثر للتعامل مع هذه التذكرة.",
+      "title": "إسناد الموظفين",
+      "description": "اختر مهندسًا أو مستشارًا واحدًا أو أكثر للتعامل مع هذه التذكرة.",
+      "cancel": "إلغاء",
+      "save": "حفظ",
+      "saving": "جارٍ الحفظ…"
+    },
+    "statusDialog": {
+      "title": "تغيير الحالة",
+      "description": "اضبط التذكرة على مفتوحة أو قيد التنفيذ أو مغلقة.",
       "cancel": "إلغاء",
       "save": "حفظ",
       "saving": "جارٍ الحفظ…"
@@ -245,7 +284,159 @@
       "created": "تم إنشاء التذكرة.",
       "updated": "تم تحديث التذكرة.",
       "deleted": "تم حذف التذكرة.",
-      "assigned": "تم تحديث الإسناد."
+      "assigned": "تم تحديث الإسناد.",
+      "statusUpdated": "تم تحديث الحالة."
+    }
+  },
+  "projects": {
+    "title": "المشاريع",
+    "subtitle": "إدارة المشاريع وتعيين مدير وإضافة المراجعين والمستشارين.",
+    "name": "الاسم",
+    "company": "الشركة",
+    "location": "الموقع",
+    "manager": "المدير",
+    "noManager": "بدون مدير",
+    "add": "إضافة مشروع",
+    "details": "التفاصيل",
+    "edit": "تعديل",
+    "manageMembers": "إدارة الأعضاء",
+    "delete": "حذف",
+    "actions": "إجراءات",
+    "empty": "لا توجد مشاريع بعد.",
+    "detail": {
+      "back": "العودة إلى المشاريع",
+      "membersTitle": "الأعضاء",
+      "membersEmpty": "لم يتم تعيين أعضاء بعد.",
+      "ticketsTitle": "التذاكر",
+      "ticketsEmpty": "لا توجد تذاكر بعد.",
+      "ticketTitle": "العنوان",
+      "ticketStatus": "الحالة",
+      "ticketCreated": "تاريخ الإنشاء"
+    },
+    "form": {
+      "addTitle": "إضافة مشروع",
+      "editTitle": "تعديل المشروع",
+      "description": "تنتمي المشاريع إلى شركة ويمكن أن يكون لها مدير.",
+      "name": "الاسم",
+      "location": "الموقع",
+      "company": "الشركة",
+      "companyPlaceholder": "اختر شركة",
+      "manager": "المدير",
+      "noManager": "بدون مدير",
+      "cancel": "إلغاء",
+      "save": "حفظ",
+      "saving": "جارٍ الحفظ…"
+    },
+    "members": {
+      "column": "الأعضاء",
+      "title": "أعضاء {name}",
+      "description": "المراجعون والمستشارون المُسندون لهذا المشروع.",
+      "empty": "لا يوجد أعضاء بعد.",
+      "user": "المستخدم",
+      "userPlaceholder": "اختر مستخدمًا",
+      "role": "الصلاحية",
+      "rolePlaceholder": "اختر دورًا",
+      "add": "إضافة عضو",
+      "remove": "إزالة",
+      "added": "تمت إضافة العضو.",
+      "removed": "تمت إزالة العضو."
+    },
+    "deleteConfirm": {
+      "title": "حذف المشروع",
+      "description": "سيؤدي هذا إلى إزالة {name} وعضوياته. لا يمكن التراجع عن ذلك.",
+      "cancel": "إلغاء",
+      "confirm": "حذف",
+      "deleting": "جارٍ الحذف…"
+    },
+    "toast": {
+      "created": "تمت إضافة المشروع.",
+      "updated": "تم تحديث المشروع.",
+      "deleted": "تم حذف المشروع."
+    }
+  },
+  "complaints": {
+    "heading": "الشكاوى",
+    "subtitle": "مشكلات أثارها المُبلّغون حول طريقة معالجة تذاكرهم.",
+    "backToList": "العودة إلى الشكاوى",
+    "id": "المعرّف",
+    "titleLabel": "العنوان",
+    "detailsLabel": "التفاصيل",
+    "ticket": "التذكرة",
+    "author": "المُبلِغ",
+    "created": "تاريخ الإنشاء",
+    "attachments": "المرفقات",
+    "empty": "لا توجد شكاوى بعد."
+  },
+  "suggestions": {
+    "heading": "الاقتراحات",
+    "subtitle": "أفكار التحسين المقدّمة من الفريق.",
+    "id": "المعرّف",
+    "create": "اقتراح",
+    "title": "إرسال اقتراح",
+    "description": "شارك فكرة لتحسين النظام.",
+    "projectLabel": "المشروع (اختياري)",
+    "projectPlaceholder": "لا يوجد مشروع محدد",
+    "titleLabel": "العنوان",
+    "detailsLabel": "التفاصيل",
+    "attachments": "المرفقات (اختياري)",
+    "attachmentsHint": "اسحب وأفلت الصور هنا، أو انقر للتصفّح",
+    "attachmentsTypes": "PNG أو JPG أو WebP أو GIF · حتى 5 ميجابايت لكل ملف",
+    "removeImage": "إزالة الصورة",
+    "submit": "إرسال",
+    "submitting": "جارٍ الإرسال…",
+    "cancel": "إلغاء",
+    "success": "تم إرسال الاقتراح.",
+    "author": "صاحب الاقتراح",
+    "created": "تاريخ الإنشاء",
+    "empty": "لا توجد اقتراحات بعد.",
+    "actions": "إجراءات",
+    "open": "فتح التفاصيل",
+    "delete": "حذف",
+    "deleteConfirm": {
+      "title": "حذف الاقتراح",
+      "description": "سيؤدي هذا إلى حذف «{title}» وردوده نهائيًا. لا يمكن التراجع عن ذلك.",
+      "confirm": "حذف",
+      "deleting": "جارٍ الحذف…",
+      "cancel": "إلغاء"
+    },
+    "toast": {
+      "deleted": "تم حذف الاقتراح."
+    },
+    "detail": {
+      "back": "العودة إلى الاقتراحات",
+      "author": "صاحب الاقتراح",
+      "created": "تاريخ الإنشاء",
+      "company": "الشركة",
+      "project": "المشروع",
+      "noProject": "لا يوجد مشروع محدد",
+      "details": "التفاصيل",
+      "attachments": "المرفقات"
+    },
+    "replies": {
+      "title": "الردود",
+      "empty": "لا توجد ردود بعد.",
+      "placeholder": "اكتب ردًا…",
+      "replyPlaceholder": "اكتب ردًا…",
+      "send": "إرسال",
+      "sending": "جارٍ الإرسال…",
+      "reply": "رد",
+      "delete": "حذف",
+      "deleted": "تم حذف الرد.",
+      "you": "أنت",
+      "deleteConfirm": {
+        "title": "حذف الرد",
+        "description": "سيؤدي هذا إلى حذف الرد (وأي ردود عليه). لا يمكن التراجع عن ذلك.",
+        "confirm": "حذف",
+        "deleting": "جارٍ الحذف…",
+        "cancel": "إلغاء"
+      },
+      "roles": {
+        "admin": "مدير",
+        "reviewer": "مراجع",
+        "manager": "مدير مشروع",
+        "software-engineer": "مهندس",
+        "user": "مستخدم"
+      }
     }
   },
   "status": {
@@ -256,7 +447,45 @@
   "notifications": {
     "title": "الإشعارات",
     "empty": "لا توجد إشعارات جديدة.",
-    "viewAll": "عرض الكل"
+    "viewAll": "عرض الكل",
+    "events": {
+      "ticketCreated": {
+        "title": "تذكرة جديدة: {title}",
+        "details": "قدّم مُبلّغ تذكرة جديدة: {title}"
+      },
+      "ticketReply": {
+        "title": "{name} ردّ على التذكرة #{id}",
+        "details": "نشر {name} رسالة جديدة على التذكرة #{id}"
+      },
+      "ticketStatusChanged": {
+        "title": "تم تحديث حالة التذكرة #{id}",
+        "details": "التذكرة #{id} أصبحت {status}"
+      },
+      "ticketAssigned": {
+        "title": "تم تحديث إسناد التذكرة #{id}",
+        "details": "تغيّر المسؤولون عن التذكرة #{id}"
+      },
+      "ticketAssignedToYou": {
+        "title": "تم إسنادك إلى التذكرة #{id}",
+        "details": "تم إسنادك للعمل على التذكرة #{id}"
+      },
+      "ticketReportSubmitted": {
+        "title": "تقرير جديد على التذكرة #{id}",
+        "details": "قدّم مهندس أو مستشار تقريرًا تشخيصيًا على التذكرة #{id}"
+      },
+      "ticketReportReply": {
+        "title": "رد جديد على تقرير (التذكرة #{id})",
+        "details": "ردّ شخص ما على تقرير تشخيصي للتذكرة #{id}"
+      },
+      "complaintSubmitted": {
+        "title": "شكوى جديدة على التذكرة #{id}",
+        "details": "قدّم مُبلّغ شكوى بخصوص التذكرة #{id}"
+      },
+      "suggestionCreated": {
+        "title": "اقتراح جديد: {title}",
+        "details": "قدّم مستخدم اقتراحاً جديداً: {title}"
+      }
+    }
   },
   "account": "الحساب",
   "logout": "تسجيل الخروج",

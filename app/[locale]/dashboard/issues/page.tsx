@@ -14,9 +14,9 @@ export default async function IssuesPage({
   await requireRole("admin");
   const t = await getTranslations("Dashboard");
 
-  const [tickets, engineers] = await Promise.all([
+  const [tickets, assignees] = await Promise.all([
     ticketService.listAll(),
-    userService.engineers(),
+    userService.assignableStaff(),
   ]);
 
   return (
@@ -30,9 +30,16 @@ export default async function IssuesPage({
             {t("tickets.subtitle")}
           </p>
         </div>
-        <AddTicketButton engineers={engineers} />
+        <AddTicketButton assignees={assignees} />
       </div>
-      <TicketsTable tickets={tickets} canManage engineers={engineers} />
+      <TicketsTable
+        tickets={tickets}
+        canEdit
+        canAssign
+        canDelete
+        canChangeStatus
+        assignees={assignees}
+      />
     </div>
   );
 }

@@ -2,8 +2,10 @@ export { Service } from "./service";
 export { UserService, userService } from "./user-service";
 export { RoleService, roleService } from "./role-service";
 export { TicketService, ticketService } from "./ticket-service";
-export { ImageService, imageService } from "./image-service";
-export { TeamMemberService, teamMemberService } from "./team-member-service";
+export { AttachmentService, attachmentService } from "./attachment-service";
+export { ReplyService, replyService } from "./reply-service";
+export { SuggestionService, suggestionService } from "./suggestion-service";
+export { ComplaintService, complaintService } from "./complaint-service";
 export { PartnerService, partnerService } from "./partner-service";
 export {
   NotificationService,
@@ -35,21 +37,14 @@ export type {
   CreateTicketInput,
   AssignTicketInput,
   UpdateTicketInput,
+  CreateReportInput,
   TicketStats,
   TicketScope,
   TicketTrendPoint,
+  CompanyTicketStats,
+  ProjectTicketStats,
+  TicketReport,
 } from "./ticket-service";
-
-export {
-  createTeamMemberSchema,
-  updateTeamMemberSchema,
-} from "./team-member-service";
-
-export type {
-  CreateTeamMemberInput,
-  UpdateTeamMemberInput,
-  TeamMember,
-} from "./team-member-service";
 
 export {
   createPartnerSchema,
@@ -62,12 +57,16 @@ export type {
   Partner,
 } from "./partner-service";
 
-export { createNotificationSchema } from "./notification-service";
+export {
+  createNotificationSchema,
+  notificationEntityTypeValues,
+} from "./notification-service";
 
 export type {
   CreateNotificationInput,
   NotificationBody,
   Notification,
+  NotificationEntityType,
 } from "./notification-service";
 
 export {
@@ -98,3 +97,26 @@ export type {
   UserProjectInput,
   UserProject,
 } from "./user-project-service";
+
+export { createReplySchema, replyEntityTypeValues } from "./reply-service";
+
+export type {
+  CreateReplyInput,
+  ReplyWithAuthor,
+  Reply,
+  ReplyEntityType,
+} from "./reply-service";
+
+export { createSuggestionSchema } from "./suggestion-service";
+
+export type {
+  CreateSuggestionInput,
+  Suggestion,
+} from "./suggestion-service";
+
+export { createComplaintSchema } from "./complaint-service";
+
+export type {
+  CreateComplaintInput,
+  Complaint,
+} from "./complaint-service";

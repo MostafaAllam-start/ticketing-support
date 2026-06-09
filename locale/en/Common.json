@@ -2,5 +2,7 @@
   "toggleTheme": "Toggle theme",
   "light": "Light",
   "dark": "Dark",
-  "system": "System"
+  "system": "System",
+  "mySuggestions": "My suggestions",
+  "myTickets": "My tickets"
 }

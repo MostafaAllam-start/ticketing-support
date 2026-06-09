@@ -34,5 +34,16 @@ export const updateUserSchema = z.object({
   password: z.string().min(8).optional(),
   jobTitle: z.string().nullable().optional(),
   image: z.string().nullable().optional(),
-  role: z.string().optional(), // role name
+  // Contact fields the user can manage from their own profile.
+  website: z.string().nullable().optional(),
+  whatsapp: z.string().nullable().optional(),
+  linkedin: z.string().nullable().optional(),
+  // Global admin flag (the only global role; every other role is per-project).
+  isAdmin: z.boolean().optional(),
+  // Whether the user may open the staff dashboard.
+  canAccessDashboard: z.boolean().optional(),
+  // The company the user belongs to (ECM/CTC). Chosen at registration.
+  companyId: z.number().int().positive().nullable().optional(),
+  // Whether the user is featured on their company's public landing-page team.
+  isTeamMember: z.boolean().optional(),
 });

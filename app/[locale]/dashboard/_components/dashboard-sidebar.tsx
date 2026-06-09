@@ -4,9 +4,12 @@ import {
   BarChart3,
   Building2,
   Contact,
+  FolderKanban,
   Handshake,
   Inbox,
+  Lightbulb,
   LogOut,
+  MessageSquareWarning,
   Ticket,
   Users,
   type LucideIcon,
@@ -41,11 +44,18 @@ type NavItem = { href: string; key: string; icon: LucideIcon };
 const NAV: Record<string, NavItem[]> = {
   admin: [
     { href: "/dashboard/kpis", key: "kpis", icon: BarChart3 },
+    { href: "/dashboard/companies", key: "companies", icon: Building2 },
+    { href: "/dashboard/projects", key: "projects", icon: FolderKanban },
     { href: "/dashboard/users", key: "users", icon: Users },
     { href: "/dashboard/issues", key: "issues", icon: Inbox },
+    {
+      href: "/dashboard/complaints",
+      key: "complaints",
+      icon: MessageSquareWarning,
+    },
+    { href: "/dashboard/suggestions", key: "suggestions", icon: Lightbulb },
     { href: "/dashboard/team-members", key: "teamMembers", icon: Contact },
     { href: "/dashboard/partners", key: "partners", icon: Handshake },
-    { href: "/dashboard/companies", key: "companies", icon: Building2 },
   ],
   "software-engineer": [
     { href: "/dashboard/kpis", key: "kpis", icon: BarChart3 },
@@ -54,6 +64,20 @@ const NAV: Record<string, NavItem[]> = {
   reviewer: [
     { href: "/dashboard/kpis", key: "kpis", icon: BarChart3 },
     { href: "/dashboard/tickets", key: "reportedTickets", icon: Ticket },
+  ],
+  // Consultants view tickets to add diagnostic reports (no management actions).
+  "sap-consultant": [
+    { href: "/dashboard/kpis", key: "kpis", icon: BarChart3 },
+    { href: "/dashboard/tickets", key: "reportedTickets", icon: Ticket },
+  ],
+  manager: [
+    { href: "/dashboard/kpis", key: "kpis", icon: BarChart3 },
+    { href: "/dashboard/tickets", key: "projectTickets", icon: Ticket },
+    {
+      href: "/dashboard/complaints",
+      key: "complaints",
+      icon: MessageSquareWarning,
+    },
   ],
 };
 
@@ -83,7 +107,17 @@ export function DashboardSidebar({
   return (
     <Sidebar side={side}>
       <SidebarHeader className="items-center p-3">
-        <Logo badge={false} imageClassName="h-12" />
+        {role === "admin" ? (
+          // Admins oversee every company, so show both brands instead of a
+          // single-company logo (and no company switcher).
+          <div className="flex items-center gap-3">
+            <Logo brand="ctc" imageClassName="h-10" />
+            <span aria-hidden className="h-10 w-px bg-border" />
+            <Logo brand="ecm" imageClassName="h-10" />
+          </div>
+        ) : (
+          <Logo imageClassName="h-12" />
+        )}
       </SidebarHeader>
 
       <SidebarContent>

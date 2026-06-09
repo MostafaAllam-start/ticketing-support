@@ -1,30 +1,31 @@
 import Image from "next/image";
-import logo from "@/public/logo-filled.png";
+import ctcLogo from "@/public/CTC.webp";
+import ecmLogo from "@/public/logo-filled.png";
 import { cn } from "@/lib/utils";
+import type { BrandKey } from "@/lib/companies";
 
-// The ECM logo. By default it sits in a white "badge" so the metallic wordmark
-// stays legible on any surface (invisible on white, a clean chip on dark/colored
-// backgrounds). Pass `badge={false}` to render the bare image.
+const LOGOS: Record<BrandKey, typeof ctcLogo> = {
+  ctc: ctcLogo,
+  ecm: ecmLogo,
+};
+
+// The brand logo. Defaults to CTC (the primary brand); pass `brand="ecm"` to show
+// the ECM logo (used on the landing page for ECM users). The image has a
+// transparent background, so it sits directly on any surface.
 export function Logo({
   className,
   imageClassName,
-  badge = true,
+  brand = "ctc",
 }: {
   className?: string;
   imageClassName?: string;
-  badge?: boolean;
+  brand?: BrandKey;
 }) {
   return (
-    <span
-      className={cn(
-        "inline-flex items-center",
-        badge && "rounded-md bg-white p-1.5",
-        className,
-      )}
-    >
+    <span className={cn("inline-flex items-center", className)}>
       <Image
-        src={logo}
-        alt="ECM + Business Suite"
+        src={LOGOS[brand]}
+        alt={brand === "ecm" ? "ECM" : "CTC"}
         priority
         className={cn("h-8 w-auto", imageClassName)}
       />

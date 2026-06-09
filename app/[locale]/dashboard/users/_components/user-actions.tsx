@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { keepInputOnError } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ImageDropzone } from "@/components/ui/image-dropzone";
@@ -44,13 +44,11 @@ export type UserItem = {
   username: string;
   email: string;
   jobTitle: string | null;
-  role: string;
+  isAdmin: boolean;
+  canAccessDashboard: boolean;
   image: string | null;
   isDisabled: boolean;
 };
-
-const controlClass =
-  "h-9 w-full rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-base outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30";
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
@@ -60,13 +58,14 @@ function FieldError({ message }: { message?: string }) {
 function UserFormDialog({
   mode,
   user,
-  roles,
+  adminLocked = false,
   open,
   onOpenChange,
 }: {
   mode: "add" | "edit";
   user?: UserItem;
-  roles: string[];
+  // The default admin can't be demoted — render the checkbox checked + disabled.
+  adminLocked?: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -91,7 +90,7 @@ function UserFormDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <form action={formAction} className="grid gap-4">
+        <form action={formAction} onReset={keepInputOnError(state)} className="grid gap-4">
           {mode === "edit" && user && (
             <input type="hidden" name="id" value={user.id} />
           )}
@@ -145,21 +144,28 @@ function UserFormDialog({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="user-role">{t("users.form.role")}</Label>
-              <select
-                id="user-role"
-                name="role"
-                defaultValue={user?.role ?? "user"}
-                className={cn(controlClass)}
-                aria-invalid={Boolean(state.fieldErrors?.role)}
-              >
-                {roles.map((role) => (
-                  <option key={role} value={role}>
-                    {role}
-                  </option>
-                ))}
-              </select>
-              <FieldError message={state.fieldErrors?.role} />
+              <Label htmlFor="user-isAdmin">{t("users.form.admin")}</Label>
+              <label className="flex h-9 items-center gap-2 text-sm">
+                <input
+                  id="user-isAdmin"
+                  type="checkbox"
+                  name="isAdmin"
+                  value="true"
+                  defaultChecked={adminLocked || user?.isAdmin}
+                  disabled={adminLocked}
+                  className="size-4 rounded border-input"
+                />
+                <span className="text-muted-foreground">
+                  {t("users.form.adminHint")}
+                </span>
+              </label>
+              {/* A disabled checkbox submits nothing, so carry the locked flag. */}
+              {adminLocked && <input type="hidden" name="isAdmin" value="true" />}
+              {adminLocked && (
+                <p className="text-xs text-muted-foreground">
+                  {t("users.form.adminLocked")}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -170,6 +176,25 @@ function UserFormDialog({
                 defaultValue={user?.jobTitle ?? ""}
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="user-canAccessDashboard">
+              {t("users.form.dashboard")}
+            </Label>
+            <label className="flex h-9 items-center gap-2 text-sm">
+              <input
+                id="user-canAccessDashboard"
+                type="checkbox"
+                name="canAccessDashboard"
+                value="true"
+                defaultChecked={user?.canAccessDashboard}
+                className="size-4 rounded border-input"
+              />
+              <span className="text-muted-foreground">
+                {t("users.form.dashboardHint")}
+              </span>
+            </label>
           </div>
 
           <div className="space-y-2">
@@ -259,7 +284,7 @@ function ToggleDisabledDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <form action={formAction} className="grid gap-4">
+        <form action={formAction} onReset={keepInputOnError(state)} className="grid gap-4">
           <input type="hidden" name="id" value={user.id} />
           <input type="hidden" name="disabled" value={String(willDisable)} />
           <DialogHeader>
@@ -301,7 +326,7 @@ function ToggleDisabledDialog({
   );
 }
 
-export function AddUserButton({ roles }: { roles: string[] }) {
+export function AddUserButton() {
   const t = useTranslations("Dashboard");
   const [open, setOpen] = useState(false);
 
@@ -311,31 +336,27 @@ export function AddUserButton({ roles }: { roles: string[] }) {
         <Plus />
         {t("users.add")}
       </Button>
-      <UserFormDialog
-        mode="add"
-        roles={roles}
-        open={open}
-        onOpenChange={setOpen}
-      />
+      <UserFormDialog mode="add" open={open} onOpenChange={setOpen} />
     </>
   );
 }
 
 export function UserRowActions({
   user,
-  roles,
   isSelf,
+  isDefaultAdmin = false,
 }: {
   user: UserItem;
-  roles: string[];
   isSelf: boolean;
+  isDefaultAdmin?: boolean;
 }) {
   const t = useTranslations("Dashboard");
   const [editOpen, setEditOpen] = useState(false);
   const [toggleOpen, setToggleOpen] = useState(false);
 
   return (
-    <>
+    // Stop double-clicks on the actions cell from opening the row details modal.
+    <span onDoubleClick={(event) => event.stopPropagation()}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon-sm">
@@ -370,7 +391,7 @@ export function UserRowActions({
       <UserFormDialog
         mode="edit"
         user={user}
-        roles={roles}
+        adminLocked={isDefaultAdmin}
         open={editOpen}
         onOpenChange={setEditOpen}
       />
@@ -379,6 +400,6 @@ export function UserRowActions({
         open={toggleOpen}
         onOpenChange={setToggleOpen}
       />
-    </>
+    </span>
   );
 }

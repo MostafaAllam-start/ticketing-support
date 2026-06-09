@@ -1,7 +1,12 @@
 import type { z } from "zod";
-import type { Ticket, TicketStatus } from "@/app/generated/prisma/client";
+import type {
+  Ticket,
+  TicketReport,
+  TicketStatus,
+} from "@/app/generated/prisma/client";
 import type {
   assignTicketSchema,
+  createReportSchema,
   createTicketSchema,
   updateTicketSchema,
 } from "./schemas";
@@ -9,6 +14,7 @@ import type {
 export type CreateTicketInput = z.infer<typeof createTicketSchema>;
 export type AssignTicketInput = z.infer<typeof assignTicketSchema>;
 export type UpdateTicketInput = z.infer<typeof updateTicketSchema>;
+export type CreateReportInput = z.infer<typeof createReportSchema>;
 
 // KPI shape, computed from ticket status counts (there is no KPI table).
 export type TicketStats = {
@@ -16,6 +22,19 @@ export type TicketStats = {
   open: number;
   in_progress: number;
   closed: number;
+};
+
+export type ProjectTicketStats = {
+  projectId: number | null;
+  projectName: string;
+  stats: TicketStats;
+};
+
+export type CompanyTicketStats = {
+  companyId: number | null;
+  companyName: string;
+  stats: TicketStats;
+  projects: ProjectTicketStats[];
 };
 
 // One day on the "tickets created over time" chart: how many tickets were created
@@ -33,9 +52,11 @@ export type TicketTrendPoint = {
 // - "all": admin (every ticket)
 // - "assigned": engineer (tickets assigned to them)
 // - "reported": tickets reported by a given user
+// - "projects": tickets in the given project id list
 export type TicketScope =
   | { kind: "all" }
   | { kind: "assigned"; userId: number }
-  | { kind: "reported"; userId: number };
+  | { kind: "reported"; userId: number }
+  | { kind: "projects"; projectIds: number[] };
 
-export type { Ticket, TicketStatus };
+export type { Ticket, TicketReport, TicketStatus };

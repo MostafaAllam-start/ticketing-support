@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { userService } from "@/services";
-import { requireRole } from "@/lib/auth/guards";
+import { DEFAULT_ADMIN_USERNAME, requireRole } from "@/lib/auth/guards";
 import { saveUserImage } from "@/lib/uploads";
 
 // Initial password for admin-created accounts. The create form has no password
@@ -17,12 +17,13 @@ export type ActionState = {
 };
 
 // Shared identity fields. `password` is required on create and optional on edit
-// (blank = keep current), so it's validated separately.
+// (blank = keep current), so it's validated separately. `isAdmin` (the only
+// global role) is read off the form checkbox separately; all other roles are
+// granted per-project on the Projects page.
 const identitySchema = z.object({
   name: z.string().min(1),
   username: z.string().min(3),
   email: z.email(),
-  role: z.string().min(1),
 });
 
 function fieldErrorsFrom(error: z.ZodError): Record<string, string> {
@@ -75,7 +76,6 @@ export async function createUserAction(
     name: formData.get("name"),
     username: formData.get("username"),
     email: formData.get("email"),
-    role: formData.get("role"),
   });
   if (!parsed.success) {
     return { fieldErrors: fieldErrorsFrom(parsed.error) };
@@ -92,17 +92,18 @@ export async function createUserAction(
     };
   }
 
-  const { role, ...identity } = parsed.data;
+  const isAdmin = formData.get("isAdmin") === "true";
+  const canAccessDashboard = formData.get("canAccessDashboard") === "true";
   try {
     await userService.register(
       {
-        ...identity,
+        ...parsed.data,
         // Admin-created accounts get a shared default password (no form field).
         password: DEFAULT_USER_PASSWORD,
         jobTitle: readOptional(formData, "jobTitle"),
         image: image ?? undefined,
       },
-      role,
+      { isAdmin, canAccessDashboard },
     );
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Failed to save" };
@@ -121,11 +122,13 @@ export async function updateUserAction(
   const id = readId(formData);
   if (!id) return { error: "Invalid user" };
 
+  const existing = await userService.findWithRole(id);
+  if (!existing) return { error: "Invalid user" };
+
   const parsed = identitySchema.safeParse({
     name: formData.get("name"),
     username: formData.get("username"),
     email: formData.get("email"),
-    role: formData.get("role"),
   });
   const password = readOptional(formData, "password"); // blank = keep current
 
@@ -150,9 +153,17 @@ export async function updateUserAction(
     };
   }
 
+  // The seeded default admin is locked to admin, even if a tampered request
+  // submits otherwise.
+  const isDefaultAdmin = existing.username === DEFAULT_ADMIN_USERNAME;
+  const isAdmin = isDefaultAdmin ? true : formData.get("isAdmin") === "true";
+  const canAccessDashboard = formData.get("canAccessDashboard") === "true";
+
   try {
     await userService.update(id, {
       ...parsed.data,
+      isAdmin,
+      canAccessDashboard,
       password,
       image,
       // A null clears the column; undefined would leave it unchanged.

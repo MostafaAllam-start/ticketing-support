@@ -14,21 +14,24 @@ import {
   User,
   Zap,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, keepInputOnError } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/logo";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
+import type { BrandKey } from "@/lib/companies";
 import { loginAction, registerAction } from "../actions";
 
 type AuthMode = "login" | "register";
 
 export function AuthScreen({
   initialMode = "login",
+  brand = "ctc",
 }: {
   initialMode?: AuthMode;
+  brand?: BrandKey;
 }) {
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const isLogin = mode === "login";
@@ -55,42 +58,42 @@ export function AuthScreen({
         <div className="pointer-events-none absolute inset-0 text-primary-foreground opacity-[0.15] [background-image:linear-gradient(to_right,currentColor_1px,transparent_1px),linear-gradient(to_bottom,currentColor_1px,transparent_1px)] [background-size:36px_36px]" />
 
         <Logo
-          badge={false}
           className="relative self-center"
           imageClassName="h-16"
+          brand={brand}
         />
 
         <div className="relative space-y-6">
           <h1 className="text-4xl leading-tight font-semibold tracking-tight text-balance">
-            {tBrand("headline")}
+            {tBrand(`${brand}.headline`)}
           </h1>
           <p className="max-w-sm text-primary-foreground/80">
-            {tBrand("tagline")}
+            {tBrand(`${brand}.tagline`)}
           </p>
           <ul className="space-y-3 text-sm text-primary-foreground/90">
             <li className="flex items-center gap-3">
               <span className="flex size-7 items-center justify-center rounded-full bg-primary-foreground/10">
                 <Zap className="size-4" />
               </span>
-              {tBrand("feature1")}
+              {tBrand(`${brand}.feature1`)}
             </li>
             <li className="flex items-center gap-3">
               <span className="flex size-7 items-center justify-center rounded-full bg-primary-foreground/10">
                 <ShieldCheck className="size-4" />
               </span>
-              {tBrand("feature2")}
+              {tBrand(`${brand}.feature2`)}
             </li>
             <li className="flex items-center gap-3">
               <span className="flex size-7 items-center justify-center rounded-full bg-primary-foreground/10">
                 <Sparkles className="size-4" />
               </span>
-              {tBrand("feature3")}
+              {tBrand(`${brand}.feature3`)}
             </li>
           </ul>
         </div>
 
         <p className="relative text-sm text-primary-foreground/60">
-          {tBrand("rights")}
+          {tBrand(`${brand}.rights`)}
         </p>
       </aside>
 
@@ -98,7 +101,7 @@ export function AuthScreen({
       <main className="flex items-center justify-center bg-background px-6 py-12">
         <div className="w-full max-w-sm">
           <div className="mb-8 flex items-center justify-between gap-3">
-            <Logo className="lg:hidden" />
+            <Logo className="lg:hidden" brand={brand} />
             <div className="flex items-center gap-2 ms-auto">
               <ThemeToggle />
               <LocaleSwitcher />
@@ -180,7 +183,7 @@ function LoginForm() {
   const [state, formAction, pending] = useActionState(loginAction, {});
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} onReset={keepInputOnError(state)} className="space-y-4">
       <FormError message={state.error} />
 
       <div className="space-y-2">
@@ -232,7 +235,7 @@ function RegisterForm() {
   const [state, formAction, pending] = useActionState(registerAction, {});
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} onReset={keepInputOnError(state)} className="space-y-4">
       <FormError message={state.error} />
 
       <div className="space-y-2">

@@ -33,6 +33,15 @@ function readId(formData: FormData): number | null {
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 
+// The selected company ids (checkbox group). Always returns an array so an empty
+// selection clears the associations on update.
+function readCompanyIds(formData: FormData): number[] {
+  return formData
+    .getAll("companyIds")
+    .map((v) => Number(v))
+    .filter((n) => Number.isInteger(n) && n > 0);
+}
+
 // Revalidate both the admin list and the public landing page (partners section).
 function revalidate() {
   revalidatePath("/[locale]/dashboard/partners", "page");
@@ -55,7 +64,10 @@ export async function createPartnerAction(
   }
 
   try {
-    await partnerService.create(parsed.data);
+    await partnerService.create({
+      ...parsed.data,
+      companyIds: readCompanyIds(formData),
+    });
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Failed to save" };
   }
@@ -83,7 +95,10 @@ export async function updatePartnerAction(
   }
 
   try {
-    await partnerService.update(id, parsed.data);
+    await partnerService.update(id, {
+      ...parsed.data,
+      companyIds: readCompanyIds(formData),
+    });
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Failed to save" };
   }

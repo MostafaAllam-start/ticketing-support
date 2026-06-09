@@ -1,6 +1,5 @@
 import bcrypt from "bcryptjs";
-import type { PrismaClient, Role } from "../../app/generated/prisma/client";
-import type { RoleName } from "./roles";
+import type { PrismaClient } from "../../app/generated/prisma/client";
 
 const BCRYPT_ROUNDS = 12;
 
@@ -17,24 +16,22 @@ function adminConfig() {
 }
 
 // Seeds the default users. Currently the admin account: created with a
-// bcrypt-hashed password and linked to the `admin` role. Idempotent on
-// `username`.
-export async function seedUsers(
-  prisma: PrismaClient,
-  roles: Record<RoleName, Role>,
-): Promise<void> {
+// bcrypt-hashed password and flagged as the global admin (`isAdmin`). Idempotent
+// on `username`.
+export async function seedUsers(prisma: PrismaClient): Promise<void> {
   const config = adminConfig();
   const passwordHash = await bcrypt.hash(config.password, BCRYPT_ROUNDS);
 
   const admin = await prisma.user.upsert({
     where: { username: config.username },
-    update: { roleId: roles.admin.id },
+    update: { isAdmin: true, canAccessDashboard: true },
     create: {
       name: config.name,
       username: config.username,
       email: config.email,
       password: passwordHash,
-      roleId: roles.admin.id,
+      isAdmin: true,
+      canAccessDashboard: true,
       jobTitle: config.jobTitle,
     },
   });

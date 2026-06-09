@@ -1,13 +1,11 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { Loader2, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import { Loader2, MoreHorizontal, Plus, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, keepInputOnError } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { ImageDropzone } from "@/components/ui/image-dropzone";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -25,139 +23,76 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  createTeamMemberAction,
-  deleteTeamMemberAction,
-  updateTeamMemberAction,
+  addTeamMemberAction,
+  removeTeamMemberAction,
   type ActionState,
 } from "../actions";
 
 export type UserOption = { id: number; name: string };
-export type TeamMemberItem = {
-  id: number;
-  name: string;
-  position: string;
-  image: string;
-  userId: number | null;
-};
 
 const controlClass =
   "h-9 w-full rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-base outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30";
 
-function FieldError({ message }: { message?: string }) {
-  if (!message) return null;
-  return <p className="text-xs text-destructive">{message}</p>;
-}
-
-function TeamMemberFormDialog({
-  mode,
-  member,
-  users,
+function AddTeamMemberDialog({
+  candidates,
   open,
   onOpenChange,
 }: {
-  mode: "add" | "edit";
-  member?: TeamMemberItem;
-  users: UserOption[];
+  candidates: UserOption[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   const t = useTranslations("Dashboard");
-  const action = mode === "add" ? createTeamMemberAction : updateTeamMemberAction;
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
-    action,
+    addTeamMemberAction,
     {},
   );
 
   useEffect(() => {
     if (state.ok) {
-      toast.success(
-        mode === "add"
-          ? t("teamMembers.toast.created")
-          : t("teamMembers.toast.updated"),
-      );
+      toast.success(t("teamMembers.toast.added"));
       onOpenChange(false);
     } else if (state.error) {
       toast.error(state.error);
     }
-  }, [state, mode, t, onOpenChange]);
+  }, [state, t, onOpenChange]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <form action={formAction} className="grid gap-4">
-          {mode === "edit" && member && (
-            <input type="hidden" name="id" value={member.id} />
-          )}
+        <form action={formAction} onReset={keepInputOnError(state)} className="grid gap-4">
           <DialogHeader>
-            <DialogTitle>
-              {mode === "add"
-                ? t("teamMembers.form.addTitle")
-                : t("teamMembers.form.editTitle")}
-            </DialogTitle>
+            <DialogTitle>{t("teamMembers.form.addTitle")}</DialogTitle>
             <DialogDescription>
               {t("teamMembers.form.description")}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-2">
-            <Label htmlFor="tm-name">{t("teamMembers.form.name")}</Label>
-            <Input
-              id="tm-name"
-              name="name"
-              defaultValue={member?.name}
-              aria-invalid={Boolean(state.fieldErrors?.name)}
-              required
-            />
-            <FieldError message={state.fieldErrors?.name} />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="tm-position">{t("teamMembers.form.position")}</Label>
-            <Input
-              id="tm-position"
-              name="position"
-              defaultValue={member?.position}
-              aria-invalid={Boolean(state.fieldErrors?.position)}
-              required
-            />
-            <FieldError message={state.fieldErrors?.position} />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="tm-image">{t("teamMembers.form.image")}</Label>
-            {mode === "edit" && member && (
-              <input type="hidden" name="currentImage" value={member.image} />
-            )}
-            <ImageDropzone
-              id="tm-image"
-              name="imageFile"
-              defaultPreview={member?.image}
-              invalid={Boolean(state.fieldErrors?.image)}
-              texts={{
-                hint: t("teamMembers.form.imageHint"),
-                types: t("teamMembers.form.imageTypes"),
-                remove: t("teamMembers.form.imageRemove"),
-              }}
-            />
-            <FieldError message={state.fieldErrors?.image} />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="tm-user">{t("teamMembers.form.user")}</Label>
-            <select
-              id="tm-user"
-              name="userId"
-              defaultValue={member?.userId != null ? String(member.userId) : ""}
-              className={cn(controlClass)}
-            >
-              <option value="">{t("teamMembers.form.userNone")}</option>
-              {users.map((user) => (
-                <option key={user.id} value={user.id}>
-                  {user.name}
+          {candidates.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {t("teamMembers.form.noCandidates")}
+            </p>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="tm-user">{t("teamMembers.form.user")}</Label>
+              <select
+                id="tm-user"
+                name="userId"
+                defaultValue=""
+                required
+                className={cn(controlClass)}
+              >
+                <option value="" disabled>
+                  {t("teamMembers.form.userPlaceholder")}
                 </option>
-              ))}
-            </select>
-          </div>
+                {candidates.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <DialogFooter>
             <DialogClose asChild>
@@ -165,7 +100,10 @@ function TeamMemberFormDialog({
                 {t("teamMembers.form.cancel")}
               </Button>
             </DialogClose>
-            <Button type="submit" disabled={pending}>
+            <Button
+              type="submit"
+              disabled={pending || candidates.length === 0}
+            >
               {pending && <Loader2 className="animate-spin" />}
               {pending ? t("teamMembers.form.saving") : t("teamMembers.form.save")}
             </Button>
@@ -176,24 +114,24 @@ function TeamMemberFormDialog({
   );
 }
 
-function DeleteTeamMemberDialog({
+function RemoveTeamMemberDialog({
   member,
   open,
   onOpenChange,
 }: {
-  member: TeamMemberItem;
+  member: UserOption;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   const t = useTranslations("Dashboard");
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
-    deleteTeamMemberAction,
+    removeTeamMemberAction,
     {},
   );
 
   useEffect(() => {
     if (state.ok) {
-      toast.success(t("teamMembers.toast.deleted"));
+      toast.success(t("teamMembers.toast.removed"));
       onOpenChange(false);
     } else if (state.error) {
       toast.error(state.error);
@@ -203,25 +141,25 @@ function DeleteTeamMemberDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <form action={formAction} className="grid gap-4">
-          <input type="hidden" name="id" value={member.id} />
+        <form action={formAction} onReset={keepInputOnError(state)} className="grid gap-4">
+          <input type="hidden" name="userId" value={member.id} />
           <DialogHeader>
-            <DialogTitle>{t("teamMembers.deleteConfirm.title")}</DialogTitle>
+            <DialogTitle>{t("teamMembers.removeConfirm.title")}</DialogTitle>
             <DialogDescription>
-              {t("teamMembers.deleteConfirm.description", { name: member.name })}
+              {t("teamMembers.removeConfirm.description", { name: member.name })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <DialogClose asChild>
               <Button type="button" variant="ghost">
-                {t("teamMembers.deleteConfirm.cancel")}
+                {t("teamMembers.removeConfirm.cancel")}
               </Button>
             </DialogClose>
             <Button type="submit" variant="destructive" disabled={pending}>
               {pending && <Loader2 className="animate-spin" />}
               {pending
-                ? t("teamMembers.deleteConfirm.deleting")
-                : t("teamMembers.deleteConfirm.confirm")}
+                ? t("teamMembers.removeConfirm.removing")
+                : t("teamMembers.removeConfirm.confirm")}
             </Button>
           </DialogFooter>
         </form>
@@ -230,7 +168,11 @@ function DeleteTeamMemberDialog({
   );
 }
 
-export function AddTeamMemberButton({ users }: { users: UserOption[] }) {
+export function AddTeamMemberButton({
+  candidates,
+}: {
+  candidates: UserOption[];
+}) {
   const t = useTranslations("Dashboard");
   const [open, setOpen] = useState(false);
 
@@ -240,9 +182,8 @@ export function AddTeamMemberButton({ users }: { users: UserOption[] }) {
         <Plus />
         {t("teamMembers.add")}
       </Button>
-      <TeamMemberFormDialog
-        mode="add"
-        users={users}
+      <AddTeamMemberDialog
+        candidates={candidates}
         open={open}
         onOpenChange={setOpen}
       />
@@ -250,16 +191,9 @@ export function AddTeamMemberButton({ users }: { users: UserOption[] }) {
   );
 }
 
-export function TeamMemberRowActions({
-  member,
-  users,
-}: {
-  member: TeamMemberItem;
-  users: UserOption[];
-}) {
+export function TeamMemberRowActions({ member }: { member: UserOption }) {
   const t = useTranslations("Dashboard");
-  const [editOpen, setEditOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [removeOpen, setRemoveOpen] = useState(false);
 
   return (
     <>
@@ -271,28 +205,20 @@ export function TeamMemberRowActions({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={() => setEditOpen(true)}>
-            <Pencil />
-            {t("teamMembers.edit")}
-          </DropdownMenuItem>
-          <DropdownMenuItem variant="destructive" onSelect={() => setDeleteOpen(true)}>
+          <DropdownMenuItem
+            variant="destructive"
+            onSelect={() => setRemoveOpen(true)}
+          >
             <Trash2 />
-            {t("teamMembers.delete")}
+            {t("teamMembers.remove")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <TeamMemberFormDialog
-        mode="edit"
+      <RemoveTeamMemberDialog
         member={member}
-        users={users}
-        open={editOpen}
-        onOpenChange={setEditOpen}
-      />
-      <DeleteTeamMemberDialog
-        member={member}
-        open={deleteOpen}
-        onOpenChange={setDeleteOpen}
+        open={removeOpen}
+        onOpenChange={setRemoveOpen}
       />
     </>
   );

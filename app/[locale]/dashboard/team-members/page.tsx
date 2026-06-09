@@ -1,7 +1,8 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { requireRole } from "@/lib/auth/guards";
-import { teamMemberService, userService } from "@/services";
+import { userService } from "@/services";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -36,10 +37,14 @@ export default async function TeamMembersPage({
   const t = await getTranslations("Dashboard");
 
   const [members, users] = await Promise.all([
-    teamMemberService.list(),
+    userService.teamMembers(),
     userService.list(),
   ]);
-  const userOptions = users.map((user) => ({ id: user.id, name: user.name }));
+
+  // Candidates for the "add" picker: active users not already on the team.
+  const candidates = users
+    .filter((user) => !user.isTeamMember && !user.isDisabled)
+    .map((user) => ({ id: user.id, name: user.name }));
 
   return (
     <div className="space-y-6">
@@ -52,7 +57,7 @@ export default async function TeamMembersPage({
             {t("teamMembers.subtitle")}
           </p>
         </div>
-        <AddTeamMemberButton users={userOptions} />
+        <AddTeamMemberButton candidates={candidates} />
       </div>
 
       {members.length === 0 ? (
@@ -67,7 +72,7 @@ export default async function TeamMembersPage({
                 <TableHead className="w-16">{t("teamMembers.image")}</TableHead>
                 <TableHead>{t("teamMembers.name")}</TableHead>
                 <TableHead>{t("teamMembers.position")}</TableHead>
-                <TableHead>{t("teamMembers.user")}</TableHead>
+                <TableHead>{t("teamMembers.company")}</TableHead>
                 <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
@@ -76,27 +81,35 @@ export default async function TeamMembersPage({
                 <TableRow key={member.id}>
                   <TableCell>
                     <Avatar className="size-9">
-                      <AvatarImage src={member.image} alt={member.name} />
+                      {member.image ? (
+                        <AvatarImage src={member.image} alt={member.name} />
+                      ) : null}
                       <AvatarFallback className="text-xs">
                         {initials(member.name)}
                       </AvatarFallback>
                     </Avatar>
                   </TableCell>
-                  <TableCell className="font-medium">{member.name}</TableCell>
-                  <TableCell>{member.position}</TableCell>
+                  <TableCell className="font-medium">
+                    {member.name}
+                    <span className="ms-2 text-xs text-muted-foreground">
+                      @{member.username}
+                    </span>
+                  </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {member.user?.name ?? t("teamMembers.none")}
+                    {member.jobTitle ?? t("teamMembers.noPosition")}
+                  </TableCell>
+                  <TableCell>
+                    {member.company ? (
+                      <Badge variant="secondary">{member.company.name}</Badge>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        {t("teamMembers.noCompany")}
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <TeamMemberRowActions
-                      member={{
-                        id: member.id,
-                        name: member.name,
-                        position: member.position,
-                        image: member.image,
-                        userId: member.userId,
-                      }}
-                      users={userOptions}
+                      member={{ id: member.id, name: member.name }}
                     />
                   </TableCell>
                 </TableRow>

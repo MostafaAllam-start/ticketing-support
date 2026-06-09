@@ -1,0 +1,25 @@
+{
+  "menu": {
+    "account": "Account",
+    "profile": "Profile",
+    "signOut": "Sign out"
+  },
+  "title": "Your profile",
+  "subtitle": "Manage your account details and how others can reach you.",
+  "name": "Name",
+  "username": "Username",
+  "email": "Email",
+  "jobTitle": "Job title",
+  "image": "Photo",
+  "imageHint": "Drag & drop an image here, or click to browse",
+  "imageTypes": "PNG, JPG, WEBP or GIF · up to 5 MB",
+  "imageRemove": "Remove image",
+  "website": "Website",
+  "whatsapp": "WhatsApp",
+  "linkedin": "LinkedIn",
+  "password": "New password",
+  "passwordHint": "Leave blank to keep your current password.",
+  "save": "Save changes",
+  "saving": "Saving…",
+  "success": "Your profile has been updated."
+}

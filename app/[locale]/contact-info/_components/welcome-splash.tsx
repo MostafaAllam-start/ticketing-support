@@ -33,7 +33,7 @@ export function WelcomeSplash({
       <div className="relative mx-auto flex size-36 items-center justify-center">
         <span className="absolute inset-0 animate-spin rounded-full border-2 border-dashed border-primary/40 [animation-duration:6s]" />
         <span className="absolute inset-2 rounded-full border border-primary/15" />
-        <Logo badge imageClassName="h-10" />
+        <Logo imageClassName="h-10" />
       </div>
 
       <div className="space-y-1">

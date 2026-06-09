@@ -10,7 +10,6 @@ export const TOKEN_MAX_AGE = 60 * 60 * 24 * 7;
 export interface AuthTokenPayload {
   sub: string; // user id (stringified)
   username: string;
-  role: string; // role name
 }
 
 function getSecret(): Uint8Array {
@@ -24,7 +23,7 @@ function getSecret(): Uint8Array {
 // Signs an HS256 JWT for the given user. Edge-runtime safe (jose), so the same
 // token can be verified in middleware.
 export async function signToken(payload: AuthTokenPayload): Promise<string> {
-  return new SignJWT({ username: payload.username, role: payload.role })
+  return new SignJWT({ username: payload.username })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(payload.sub)
     .setIssuedAt()
@@ -44,6 +43,5 @@ export async function verifyToken(token: string): Promise<AuthTokenPayload> {
   return {
     sub: String(payload.sub),
     username: String(payload.username),
-    role: String(payload.role),
   };
 }

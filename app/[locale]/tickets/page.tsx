@@ -1,9 +1,13 @@
 import { Suspense } from "react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { requireUser } from "@/lib/auth/guards";
-import { ticketService } from "@/services";
+import { companyService, projectService, ticketService } from "@/services";
+import { companyRequiresProject } from "@/lib/companies";
 import { TicketsHeader } from "./_components/tickets-header";
-import { ReportIssueDialog } from "./_components/report-issue-dialog";
+import {
+  ReportIssueDialog,
+  type ReportProjectOption,
+} from "./_components/report-issue-dialog";
 import { MyTicketsTable, type MyTicketRow } from "./_components/my-tickets-table";
 import { TicketsTableSkeleton } from "./_components/tickets-skeletons";
 
@@ -20,6 +24,17 @@ export default async function TicketsPage({
   const user = await requireUser();
   const t = await getTranslations("Tickets");
 
+  // CTC reporters pick one of their company's projects when filing a ticket; ECM
+  // reporters get no project picker (projects stays undefined).
+  let projects: ReportProjectOption[] | undefined;
+  if (user.companyId) {
+    const company = await companyService.findById(user.companyId);
+    if (company && companyRequiresProject(company.name)) {
+      const rows = await projectService.byCompany(user.companyId);
+      projects = rows.map((p) => ({ id: p.id, name: p.name }));
+    }
+  }
+
   return (
     <div className="flex min-h-screen flex-col">
       <TicketsHeader />
@@ -31,20 +46,26 @@ export default async function TicketsPage({
             </h1>
             <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
           </div>
-          <ReportIssueDialog />
+          <ReportIssueDialog projects={projects} />
         </div>
 
         {/* The shell above renders immediately; the table streams in once the
             tickets query resolves, showing a skeleton until then. */}
         <Suspense fallback={<TicketsTableSkeleton />}>
-          <TicketsList userId={user.id} />
+          <TicketsList userId={user.id} projects={projects} />
         </Suspense>
       </main>
     </div>
   );
 }
 
-async function TicketsList({ userId }: { userId: number }) {
+async function TicketsList({
+  userId,
+  projects,
+}: {
+  userId: number;
+  projects?: ReportProjectOption[];
+}) {
   const t = await getTranslations("Tickets");
   const tickets = await ticketService.reportedBy(userId);
 
@@ -55,7 +76,7 @@ async function TicketsList({ userId }: { userId: number }) {
     description: ticket.description,
     status: ticket.status,
     created: ticket.createdAt.toISOString().slice(0, 10),
-    replyCount: ticket._count.replies,
+    replyCount: ticket.replyCount,
   }));
 
   if (rows.length === 0) {
@@ -63,7 +84,7 @@ async function TicketsList({ userId }: { userId: number }) {
       <div className="rounded-lg border border-dashed p-12 text-center">
         <p className="text-sm text-muted-foreground">{t("empty")}</p>
         <div className="mt-4 flex justify-center">
-          <ReportIssueDialog />
+          <ReportIssueDialog projects={projects} />
         </div>
       </div>
     );

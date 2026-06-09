@@ -1,17 +1,19 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useActionState, useEffect, useState } from "react";
 import {
   Loader2,
   MoreHorizontal,
   Pencil,
   Plus,
+  RefreshCw,
   Trash2,
   UserPlus,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, keepInputOnError } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +25,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -35,10 +38,16 @@ import {
   createTicketAction,
   deleteTicketAction,
   updateTicketAction,
+  updateTicketStatusAction,
   type TicketActionState,
 } from "../ticket-actions";
 
-export type EngineerOption = { id: number; name: string; username: string };
+export type AssigneeOption = {
+  id: number;
+  name: string;
+  username: string;
+  role?: string;
+};
 export type TicketItem = {
   id: number;
   title: string;
@@ -59,44 +68,65 @@ function FieldError({ message }: { message?: string }) {
   return <p className="text-xs text-destructive">{message}</p>;
 }
 
-// Reusable checkbox list of engineers. `selected` pre-checks current assignees.
-function EngineerCheckboxes({
-  engineers,
+function assigneeRoleLabel(
+  t: ReturnType<typeof useTranslations<"Dashboard">>,
+  role?: string,
+): string | null {
+  if (!role) return null;
+  const key =
+    role === "sap-consultant"
+      ? "tickets.assigneeRoles.consultant"
+      : "tickets.assigneeRoles.engineer";
+  return t.has(key) ? t(key) : null;
+}
+
+// Reusable checkbox list of engineers/consultants. `selected` pre-checks current
+// assignees.
+function AssigneeCheckboxes({
+  assignees,
   selected = [],
 }: {
-  engineers: EngineerOption[];
+  assignees: AssigneeOption[];
   selected?: number[];
 }) {
   const t = useTranslations("Dashboard");
 
-  if (engineers.length === 0) {
+  if (assignees.length === 0) {
     return (
       <p className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
-        {t("tickets.noEngineers")}
+        {t("tickets.noAssignees")}
       </p>
     );
   }
 
   return (
     <div className="max-h-44 space-y-1 overflow-y-auto rounded-lg border p-2">
-      {engineers.map((engineer) => (
-        <label
-          key={engineer.id}
-          className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent"
-        >
-          <input
-            type="checkbox"
-            name="assigneeIds"
-            value={engineer.id}
-            defaultChecked={selected.includes(engineer.id)}
-            className="size-4 accent-primary"
-          />
-          <span className="font-medium">{engineer.name}</span>
-          <span className="text-xs text-muted-foreground">
-            @{engineer.username}
-          </span>
-        </label>
-      ))}
+      {assignees.map((assignee) => {
+        const roleLabel = assigneeRoleLabel(t, assignee.role);
+        return (
+          <label
+            key={assignee.id}
+            className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent"
+          >
+            <input
+              type="checkbox"
+              name="assigneeIds"
+              value={assignee.id}
+              defaultChecked={selected.includes(assignee.id)}
+              className="size-4 accent-primary"
+            />
+            <span className="font-medium">{assignee.name}</span>
+            {roleLabel && (
+              <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                {roleLabel}
+              </span>
+            )}
+            <span className="text-xs text-muted-foreground">
+              @{assignee.username}
+            </span>
+          </label>
+        );
+      })}
     </div>
   );
 }
@@ -104,13 +134,13 @@ function EngineerCheckboxes({
 function TicketFormDialog({
   mode,
   ticket,
-  engineers,
+  assignees,
   open,
   onOpenChange,
 }: {
   mode: "add" | "edit";
   ticket?: TicketItem;
-  engineers: EngineerOption[];
+  assignees: AssigneeOption[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -124,7 +154,9 @@ function TicketFormDialog({
   useEffect(() => {
     if (state.ok) {
       toast.success(
-        mode === "add" ? t("tickets.toast.created") : t("tickets.toast.updated"),
+        mode === "add"
+          ? t("tickets.toast.created")
+          : t("tickets.toast.updated"),
       );
       onOpenChange(false);
     } else if (state.error) {
@@ -135,7 +167,11 @@ function TicketFormDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <form action={formAction} className="grid gap-4">
+        <form
+          action={formAction}
+          onReset={keepInputOnError(state)}
+          className="grid gap-4"
+        >
           {mode === "edit" && ticket && (
             <input type="hidden" name="id" value={ticket.id} />
           )}
@@ -164,7 +200,9 @@ function TicketFormDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="tk-description">{t("tickets.form.descLabel")}</Label>
+            <Label htmlFor="tk-description">
+              {t("tickets.form.descLabel")}
+            </Label>
             <textarea
               id="tk-description"
               name="description"
@@ -199,7 +237,7 @@ function TicketFormDialog({
           {mode === "add" && (
             <div className="space-y-2">
               <Label>{t("tickets.form.assignees")}</Label>
-              <EngineerCheckboxes engineers={engineers} />
+              <AssigneeCheckboxes assignees={assignees} />
             </div>
           )}
 
@@ -220,14 +258,97 @@ function TicketFormDialog({
   );
 }
 
+export function ChangeStatusDialog({
+  ticket,
+  open,
+  onOpenChange,
+  trigger,
+}: {
+  ticket: Pick<TicketItem, "id" | "status">;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  trigger?: ReactNode;
+}) {
+  const t = useTranslations("Dashboard");
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = open !== undefined;
+  const dialogOpen = isControlled ? open : internalOpen;
+  const setDialogOpen = isControlled ? onOpenChange! : setInternalOpen;
+  const [state, formAction, pending] = useActionState<
+    TicketActionState,
+    FormData
+  >(updateTicketStatusAction, {});
+
+  useEffect(() => {
+    if (state.ok) {
+      toast.success(t("tickets.toast.statusUpdated"));
+      setDialogOpen(false);
+    } else if (state.error) {
+      toast.error(state.error);
+    }
+  }, [state, t, setDialogOpen]);
+
+  return (
+    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
+      <DialogContent>
+        <form
+          action={formAction}
+          onReset={keepInputOnError(state)}
+          className="grid gap-4"
+        >
+          <input type="hidden" name="id" value={ticket.id} />
+          <DialogHeader>
+            <DialogTitle>{t("tickets.statusDialog.title")}</DialogTitle>
+            <DialogDescription>
+              {t("tickets.statusDialog.description")}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Label htmlFor="tk-status-change">{t("tickets.form.status")}</Label>
+            <select
+              id="tk-status-change"
+              name="status"
+              defaultValue={ticket.status}
+              className={cn(controlClass)}
+            >
+              {STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {t(`status.${status}`)}
+                </option>
+              ))}
+            </select>
+            <FieldError message={state.fieldErrors?.status} />
+          </div>
+
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="ghost">
+                {t("tickets.statusDialog.cancel")}
+              </Button>
+            </DialogClose>
+            <Button type="submit" disabled={pending}>
+              {pending && <Loader2 className="animate-spin" />}
+              {pending
+                ? t("tickets.statusDialog.saving")
+                : t("tickets.statusDialog.save")}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function AssignTicketDialog({
   ticket,
-  engineers,
+  assignees,
   open,
   onOpenChange,
 }: {
   ticket: TicketItem;
-  engineers: EngineerOption[];
+  assignees: AssigneeOption[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -249,7 +370,11 @@ function AssignTicketDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <form action={formAction} className="grid gap-4">
+        <form
+          action={formAction}
+          onReset={keepInputOnError(state)}
+          className="grid gap-4"
+        >
           <input type="hidden" name="id" value={ticket.id} />
           <DialogHeader>
             <DialogTitle>{t("tickets.assignDialog.title")}</DialogTitle>
@@ -258,8 +383,8 @@ function AssignTicketDialog({
             </DialogDescription>
           </DialogHeader>
 
-          <EngineerCheckboxes
-            engineers={engineers}
+          <AssigneeCheckboxes
+            assignees={assignees}
             selected={ticket.assigneeIds}
           />
 
@@ -309,7 +434,11 @@ function DeleteTicketDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <form action={formAction} className="grid gap-4">
+        <form
+          action={formAction}
+          onReset={keepInputOnError(state)}
+          className="grid gap-4"
+        >
           <input type="hidden" name="id" value={ticket.id} />
           <DialogHeader>
             <DialogTitle>{t("tickets.deleteConfirm.title")}</DialogTitle>
@@ -337,9 +466,9 @@ function DeleteTicketDialog({
 }
 
 export function AddTicketButton({
-  engineers,
+  assignees,
 }: {
-  engineers: EngineerOption[];
+  assignees: AssigneeOption[];
 }) {
   const t = useTranslations("Dashboard");
   const [open, setOpen] = useState(false);
@@ -352,7 +481,7 @@ export function AddTicketButton({
       </Button>
       <TicketFormDialog
         mode="add"
-        engineers={engineers}
+        assignees={assignees}
         open={open}
         onOpenChange={setOpen}
       />
@@ -362,15 +491,27 @@ export function AddTicketButton({
 
 export function TicketRowActions({
   ticket,
-  engineers,
+  assignees,
+  canEdit = false,
+  canAssign = false,
+  canDelete = false,
+  canChangeStatus = false,
 }: {
   ticket: TicketItem;
-  engineers: EngineerOption[];
+  assignees: AssigneeOption[];
+  canEdit?: boolean;
+  canAssign?: boolean;
+  canDelete?: boolean;
+  canChangeStatus?: boolean;
 }) {
   const t = useTranslations("Dashboard");
   const [editOpen, setEditOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(false);
+
+  const hasActions = canEdit || canAssign || canDelete || canChangeStatus;
+  if (!hasActions) return null;
 
   return (
     <>
@@ -382,36 +523,53 @@ export function TicketRowActions({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={() => setEditOpen(true)}>
-            <Pencil />
-            {t("tickets.edit")}
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => setAssignOpen(true)}>
-            <UserPlus />
-            {t("tickets.assign")}
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            variant="destructive"
-            onSelect={() => setDeleteOpen(true)}
-          >
-            <Trash2 />
-            {t("tickets.delete")}
-          </DropdownMenuItem>
+          {canEdit && (
+            <DropdownMenuItem onSelect={() => setEditOpen(true)}>
+              <Pencil />
+              {t("tickets.edit")}
+            </DropdownMenuItem>
+          )}
+          {canAssign && (
+            <DropdownMenuItem onSelect={() => setAssignOpen(true)}>
+              <UserPlus />
+              {t("tickets.assign")}
+            </DropdownMenuItem>
+          )}
+          {canChangeStatus && (
+            <DropdownMenuItem onSelect={() => setStatusOpen(true)}>
+              <RefreshCw />
+              {t("tickets.changeStatus")}
+            </DropdownMenuItem>
+          )}
+          {canDelete && (
+            <DropdownMenuItem
+              variant="destructive"
+              onSelect={() => setDeleteOpen(true)}
+            >
+              <Trash2 />
+              {t("tickets.delete")}
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
       <TicketFormDialog
         mode="edit"
         ticket={ticket}
-        engineers={engineers}
+        assignees={assignees}
         open={editOpen}
         onOpenChange={setEditOpen}
       />
       <AssignTicketDialog
         ticket={ticket}
-        engineers={engineers}
+        assignees={assignees}
         open={assignOpen}
         onOpenChange={setAssignOpen}
+      />
+      <ChangeStatusDialog
+        ticket={ticket}
+        open={statusOpen}
+        onOpenChange={setStatusOpen}
       />
       <DeleteTicketDialog
         ticket={ticket}
