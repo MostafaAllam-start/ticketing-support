@@ -148,6 +148,46 @@ export async function replyThreadRecipientIds(
   return uniqueIds(ids);
 }
 
+// Recipients of a reply on a diagnostic report. Beyond the reviewing staff
+// (managers + reviewers + admins) this includes the report's own author — the
+// engineer or consultant who wrote it — plus anyone already in the report's reply
+// thread, so the field staff who own the report get the update in real time
+// (mirrors replyThreadRecipientIds for ticket conversations).
+export async function reportReplyRecipientIds(
+  projectId: number | null,
+  reportId: number,
+  parentReplyId?: number | null,
+): Promise<number[]> {
+  const ids = await managersAndReviewersUserIds(projectId);
+
+  const authorId = await ticketService.reportAuthorId(reportId);
+  if (authorId != null) ids.push(authorId);
+
+  if (parentReplyId != null) {
+    const parent = await replyService.findById(parentReplyId);
+    if (
+      parent &&
+      parent.entityType === "ticket_report" &&
+      parent.entityId === reportId
+    ) {
+      ids.push(parent.userId);
+      ids.push(
+        ...(await replyService.authorUserIdsUnderParent(
+          "ticket_report",
+          reportId,
+          parentReplyId,
+        )),
+      );
+    }
+  } else {
+    ids.push(
+      ...(await replyService.authorUserIdsOnEntity("ticket_report", reportId)),
+    );
+  }
+
+  return uniqueIds(ids);
+}
+
 // Newly added assignees who are engineers or consultants.
 export async function newAssigneeRecipientIds(
   previousIds: number[],

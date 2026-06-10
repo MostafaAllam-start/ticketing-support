@@ -16,16 +16,10 @@ import {
 } from "@/services";
 import type { AuthUser } from "@/services";
 import { canReplyToTicket, requireUser } from "@/lib/auth/guards";
-import { ticketNotificationMessages } from "@/lib/notification-messages";
-import {
-  complaintManagerRecipientIds,
-  NotificationType,
-  projectStaffUserIds,
-  replyThreadRecipientIds,
-  sendTicketNotification,
-  suggestionRecipientIds,
-} from "@/lib/ticket-notifications";
 import { companyRequiresProject } from "@/lib/companies";
+import { eventBus } from "@/events/eventBus";
+import { DomainEventType } from "@/events/eventTypes";
+import { broadcastEntityUpdate, liveRoom } from "@/realtime/liveReplies";
 import {
   assertValidImages,
   readImageFiles,
@@ -140,16 +134,11 @@ export async function reportIssue(
   const paths = await saveImages(files);
   await attachmentService.attach("ticket", ticket.id, paths);
 
-  const messages = await ticketNotificationMessages();
-  const msg = messages.ticketCreated(parsed.data.title);
-  await sendTicketNotification({
-    userIds: await projectStaffUserIds(ticket.projectId),
+  eventBus.emit(DomainEventType.TICKET_CREATED, {
+    ticketId: ticket.id,
     actorId: user.id,
-    type: NotificationType.TicketCreated,
-    title: msg.title,
-    details: msg.details,
-    entityType: "ticket",
-    entityId: ticket.id,
+    title: parsed.data.title,
+    projectId: ticket.projectId ?? null,
   });
 
   // Refresh the list so the new ticket shows up once the dialog closes.
@@ -200,16 +189,11 @@ export async function reportAnIssueAction(
   const paths = await saveImages(files);
   await attachmentService.attach("complaint", complaint.id, paths);
 
-  const messages = await ticketNotificationMessages();
-  const msg = messages.complaintSubmitted(ticketId);
-  await sendTicketNotification({
-    userIds: await complaintManagerRecipientIds(ticket.projectId ?? null),
+  eventBus.emit(DomainEventType.COMPLAINT_SUBMITTED, {
+    complaintId: complaint.id,
+    ticketId,
     actorId: user.id,
-    type: NotificationType.ComplaintSubmitted,
-    title: msg.title,
-    details: msg.details,
-    entityType: "complaint",
-    entityId: complaint.id,
+    projectId: ticket.projectId ?? null,
   });
 
   revalidateTickets();
@@ -276,19 +260,13 @@ export async function submitSuggestionAction(
   const paths = await saveImages(files);
   await attachmentService.attach("suggestion", suggestion.id, paths);
 
-  if (!suggestion.projectId) {
-    const messages = await ticketNotificationMessages();
-    const msg = messages.suggestionCreated(parsed.data.title);
-    await sendTicketNotification({
-      userIds: await suggestionRecipientIds(user.companyId),
-      actorId: user.id,
-      type: NotificationType.SuggestionCreated,
-      title: msg.title,
-      details: msg.details,
-      entityType: "suggestion",
-      entityId: suggestion.id,
-    });
-  }
+  eventBus.emit(DomainEventType.SUGGESTION_CREATED, {
+    suggestionId: suggestion.id,
+    companyId: user.companyId,
+    actorId: user.id,
+    title: parsed.data.title,
+    projectId: suggestion.projectId ?? null,
+  });
 
   // Refresh the admin suggestions list so the new suggestion shows up there.
   revalidatePath("/[locale]/dashboard/suggestions", "page");
@@ -386,8 +364,6 @@ export async function postTicketReplyAction(
     parentReplyId = parentRaw;
   }
 
-  const recipientIds = await replyThreadRecipientIds(ticketId, parentReplyId);
-
   // Validate any attached images before creating the reply so a bad upload
   // doesn't leave a message with no — or broken — attachments behind.
   const files = readImageFiles(formData);
@@ -414,16 +390,11 @@ export async function postTicketReplyAction(
   const paths = await saveReplyImages(reply.id, files);
   await attachmentService.attach("reply", reply.id, paths);
 
-  const messages = await ticketNotificationMessages();
-  const msg = messages.ticketReply(user.name, ticketId);
-  await sendTicketNotification({
-    userIds: recipientIds,
+  eventBus.emit(DomainEventType.TICKET_REPLY_ADDED, {
+    ticketId,
     actorId: user.id,
-    type: NotificationType.TicketReply,
-    title: msg.title,
-    details: msg.details,
-    entityType: "ticket",
-    entityId: ticketId,
+    parentReplyId,
+    description: parsed.data.description,
   });
 
   // Refresh whichever detail page the author is on (staff land on the dashboard
@@ -432,6 +403,8 @@ export async function postTicketReplyAction(
   revalidatePath("/[locale]/tickets/[id]", "page");
   revalidatePath("/[locale]/dashboard/tickets/[id]", "page");
   revalidatePath("/[locale]/dashboard", "layout");
+  // Live-refresh every other open ticket detail page (reporter + staff).
+  await broadcastEntityUpdate(liveRoom("ticket", ticketId));
   return { ok: true };
 }
 
@@ -445,7 +418,7 @@ function canModifyReply(user: AuthUser, reply: { userId: number }): boolean {
 async function loadModifiableReply(
   formData: FormData,
 ): Promise<
-  | { ok: true; user: AuthUser; reply: { id: number; userId: number } }
+  | { ok: true; user: AuthUser; reply: { id: number; userId: number; entityId: number } }
   | { ok: false; state: ReportState }
 > {
   const user = await userService.currentUser();
@@ -485,6 +458,7 @@ export async function updateTicketReplyAction(
 
   revalidatePath("/[locale]/tickets/[id]", "page");
   revalidatePath("/[locale]/dashboard/tickets/[id]", "page");
+  await broadcastEntityUpdate(liveRoom("ticket", auth.reply.entityId));
   return { ok: true };
 }
 
@@ -500,6 +474,7 @@ export async function deleteTicketReplyAction(
 
   revalidatePath("/[locale]/tickets/[id]", "page");
   revalidatePath("/[locale]/dashboard/tickets/[id]", "page");
+  await broadcastEntityUpdate(liveRoom("ticket", auth.reply.entityId));
   return { ok: true };
 }
 

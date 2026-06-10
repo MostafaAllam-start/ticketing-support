@@ -1,0 +1,34 @@
+# Development override. Layer it on top of the base compose file:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# It swaps the web/realtime services to their *.dev images, bind-mounts the
+# source for hot reload, and enables file-watch polling (required on Windows,
+# where bind-mounted filesystems do not emit inotify events so saves would
+# otherwise go unnoticed). The db service is inherited unchanged from the base.
+services:
+  web:
+    build:
+      context: .
+      dockerfile: ./Dockerfile.dev
+    environment:
+      NODE_ENV: development
+      NEXT_TELEMETRY_DISABLED: "1"
+      # Watch via polling instead of inotify (Windows bind mount).
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+    volumes:
+      # Live source from the host...
+      - .:/app
+      # ...but keep the container's own node_modules and .next so the Linux
+      # builds aren't clobbered by the Windows host's copies.
+      - /app/node_modules
+      - /app/.next
+
+  realtime:
+    build:
+      context: .
+      dockerfile: ./realtime/Dockerfile.dev
+    volumes:
+      - .:/app
+      - /app/node_modules

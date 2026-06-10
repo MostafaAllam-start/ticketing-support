@@ -15,6 +15,7 @@ import {
   SuggestDialog,
   type SuggestProjectOption,
 } from "../tickets/_components/suggest-dialog";
+import { SuggestionRow } from "./_components/suggestion-row";
 
 export default async function MySuggestionsPage({
   params,
@@ -77,7 +78,11 @@ export default async function MySuggestionsPage({
               </TableHeader>
               <TableBody>
                 {suggestions.map((suggestion) => (
-                  <TableRow key={suggestion.id}>
+                  <SuggestionRow
+                    key={suggestion.id}
+                    id={suggestion.id}
+                    label={suggestion.title}
+                  >
                     <TableCell className="text-muted-foreground">
                       #{suggestion.id}
                     </TableCell>
@@ -90,7 +95,7 @@ export default async function MySuggestionsPage({
                     <TableCell className="text-muted-foreground tabular-nums">
                       {suggestion.createdAt.toISOString().slice(0, 10)}
                     </TableCell>
-                  </TableRow>
+                  </SuggestionRow>
                 ))}
               </TableBody>
             </Table>

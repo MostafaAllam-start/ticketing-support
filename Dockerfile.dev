@@ -1,0 +1,23 @@
+# Development image for the Next.js web app.
+#
+# Unlike the production Dockerfile, this does NOT bake the source into the image
+# or run `next build`. The source is bind-mounted at runtime (see
+# docker-compose.dev.yml) and `next dev` provides Fast Refresh / HMR, so code
+# edits show up without rebuilding the image.
+FROM node:20-alpine
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+
+RUN npm install -g pnpm
+
+# Install dependencies. This layer is cached until package.json / the lockfile
+# change. node_modules lives inside the image and is masked from the bind mount
+# by an anonymous volume, so host (Windows) modules never clobber the Linux ones.
+COPY package.json pnpm-lock.yaml* ./
+RUN pnpm install --frozen-lockfile
+
+EXPOSE 3000
+
+# The dev entrypoint regenerates the Prisma client, syncs the schema, seeds, then
+# starts `next dev`. It is read from the bind-mounted source at runtime.
+ENTRYPOINT ["sh", "/app/docker-entrypoint.dev.sh"]

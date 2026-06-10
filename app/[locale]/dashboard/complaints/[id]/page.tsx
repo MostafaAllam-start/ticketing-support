@@ -11,6 +11,8 @@ import {
 import { replyAttachmentsMap } from "@/lib/reply-attachments";
 import { attachmentService, complaintService, replyService } from "@/services";
 import { TicketReplies } from "../../../tickets/_components/ticket-replies";
+import { LiveReplies } from "@/components/live-replies";
+import { liveRoom } from "@/realtime/liveReplies";
 import {
   deleteComplaintReplyAction,
   postComplaintReplyAction,
@@ -57,6 +59,7 @@ export default async function ComplaintDetailPage({
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-8">
+      <LiveReplies room={liveRoom("complaint", complaint.id)} />
       <Link
         href="/dashboard/complaints"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"

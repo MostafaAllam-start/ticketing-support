@@ -15,6 +15,8 @@ import { ReportAnIssueDialog } from "../_components/report-an-issue-dialog";
 import { TicketDetailSkeleton } from "../_components/tickets-skeletons";
 import { TicketReplies } from "../_components/ticket-replies";
 import { TicketReviewSummary } from "../_components/ticket-review-summary";
+import { LiveReplies } from "@/components/live-replies";
+import { liveRoom } from "@/realtime/liveReplies";
 
 function statusVariant(status: string): "secondary" | "default" | "outline" {
   if (status === "open") return "secondary";
@@ -87,6 +89,7 @@ async function TicketDetail({
 
   return (
     <>
+      <LiveReplies room={liveRoom("ticket", ticket.id)} />
       <article className="rounded-xl border p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-1">

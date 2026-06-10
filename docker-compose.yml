@@ -1,0 +1,52 @@
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: ticketing-db
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  realtime:
+    build:
+      context: .
+      dockerfile: ./realtime/Dockerfile
+    container_name: ticketing-realtime
+    restart: always
+    ports:
+      - "3001:3001"
+    env_file:
+      - .env
+
+  web:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    container_name: ticketing-web
+    restart: always
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    # Container-network overrides — these must differ from the host-facing values
+    # in .env, so they stay here rather than being centralized:
+    #   DATABASE_URL → reaches Postgres over the compose network ("db"), whereas
+    #     .env uses "localhost" for host-side Prisma CLI.
+    #   SOCKET_INTERNAL_URL → the realtime service's in-network hostname; the app
+    #     falls back to localhost:3001 when this is unset (non-Docker runs).
+    environment:
+      DATABASE_URL: "postgresql://postgres:123@db:5432/ticketing_support?schema=public"
+      SOCKET_INTERNAL_URL: "http://realtime:3001"
+    depends_on:
+      - db
+      - realtime
+    volumes:
+      - ./uploads:/app/uploads
+
+volumes:
+  pgdata:
+

@@ -1,0 +1,18 @@
+# Development image for the Socket.IO realtime server.
+#
+# Source is bind-mounted at runtime (see docker-compose.dev.yml) and `tsx watch`
+# restarts the server whenever a watched file changes — no rebuild needed.
+FROM node:20-alpine
+WORKDIR /app
+
+RUN npm install -g pnpm
+
+# Install deps in the image; node_modules is masked from the bind mount by an
+# anonymous volume so host modules never overwrite the Linux ones.
+COPY package.json pnpm-lock.yaml* ./
+RUN pnpm install --frozen-lockfile
+
+EXPOSE 3001
+ENV PORT=3001
+
+CMD ["npx", "tsx", "watch", "realtime/socketServer.ts"]

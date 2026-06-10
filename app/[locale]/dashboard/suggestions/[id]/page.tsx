@@ -7,6 +7,8 @@ import { requireRole } from "@/lib/auth/guards";
 import { ProjectRole, UserRole } from "@/lib/auth/roles";
 import { attachmentService, replyService, suggestionService } from "@/services";
 import { SuggestionReplies } from "../_components/suggestion-replies";
+import { LiveReplies } from "@/components/live-replies";
+import { liveRoom } from "@/realtime/liveReplies";
 
 export default async function SuggestionDetailPage({
   params,
@@ -43,6 +45,7 @@ export default async function SuggestionDetailPage({
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-8">
+      <LiveReplies room={liveRoom("suggestion", suggestion.id)} />
       <Link
         href="/dashboard/suggestions"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -136,6 +139,7 @@ export default async function SuggestionDetailPage({
       <SuggestionReplies
         suggestionId={suggestion.id}
         currentUserId={user.id}
+        canModerate={user.userRole === UserRole.Admin}
         replies={replies}
       />
     </div>

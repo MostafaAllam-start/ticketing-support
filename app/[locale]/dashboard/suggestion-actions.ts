@@ -7,13 +7,18 @@ import {
   projectService,
   replyService,
   suggestionService,
+  userService,
 } from "@/services";
 import {
   brandCompanyId,
   requireDashboardUser,
   requireRole,
 } from "@/lib/auth/guards";
+import { canAccessSuggestion } from "@/lib/suggestions";
 import { assertValidImages, readImageFiles, saveImages } from "@/lib/storage";
+import { eventBus } from "@/events/eventBus";
+import { DomainEventType } from "@/events/eventTypes";
+import { broadcastEntityUpdate, liveRoom } from "@/realtime/liveReplies";
 
 export type SuggestionState = {
   ok?: boolean;
@@ -92,6 +97,14 @@ export async function createSuggestionAction(
   const paths = await saveImages(files);
   await attachmentService.attach("suggestion", suggestion.id, paths);
 
+  eventBus.emit(DomainEventType.SUGGESTION_CREATED, {
+    suggestionId: suggestion.id,
+    companyId,
+    actorId: me.id,
+    title: parsed.data.title,
+    projectId: suggestion.projectId ?? null,
+  });
+
   revalidatePath("/[locale]/dashboard/suggestions", "page");
   return { ok: true };
 }
@@ -101,10 +114,13 @@ function readId(formData: FormData, key = "id"): number | null {
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 
-// Refresh both the suggestions list and the open detail page.
+// Refresh both the suggestions list and the open detail page, on the dashboard
+// (admin/manager) and the user-facing surface (the author's own pages).
 function revalidateSuggestions() {
   revalidatePath("/[locale]/dashboard/suggestions", "page");
   revalidatePath("/[locale]/dashboard/suggestions/[id]", "page");
+  revalidatePath("/[locale]/suggestions", "page");
+  revalidatePath("/[locale]/suggestions/[id]", "page");
 }
 
 // Admins delete a suggestion from the dashboard list. Its replies and
@@ -137,20 +153,27 @@ const suggestionReplySchema = z.object({
   description: z.string().trim().min(1),
 });
 
-// Admins reply to a suggestion's conversation from its detail page. The author
-// is the session user (never the form). An optional `parentReplyId` threads the
-// message under a top-level comment (validated to belong to this suggestion).
+// The suggestion's author (a plain user, on their own suggestion) and the
+// reviewing staff (admins / project managers) hold a two-way conversation from
+// the detail page. The author is the session user (never the form). An optional
+// `parentReplyId` threads the message under a top-level comment (validated to
+// belong to this suggestion).
 export async function postSuggestionReplyAction(
   _prevState: SuggestionState,
   formData: FormData,
 ): Promise<SuggestionState> {
-  const me = await requireRole("admin");
+  const me = await userService.currentUser();
+  if (!me) return { error: "You must be signed in." };
 
   const suggestionId = readId(formData, "suggestionId");
   if (!suggestionId) return { error: "Invalid suggestion." };
 
   const suggestion = await suggestionService.getDetail(suggestionId);
   if (!suggestion) return { error: "Suggestion not found." };
+
+  if (!canAccessSuggestion(me, suggestion)) {
+    return { error: "You can't reply to this suggestion." };
+  }
 
   const parsed = suggestionReplySchema.safeParse({
     description: formData.get("description"),
@@ -182,16 +205,19 @@ export async function postSuggestionReplyAction(
   });
 
   revalidateSuggestions();
+  await broadcastEntityUpdate(liveRoom("suggestion", suggestionId));
   return { ok: true };
 }
 
-// Admins delete a reply (and, for a top-level comment, its thread) on a
-// suggestion. The reply is checked to belong to this suggestion before removal.
+// Deletes a reply (and, for a top-level comment, its thread) on a suggestion.
+// Only the reply's own author or an admin may remove it; the reply is checked to
+// belong to this suggestion before removal.
 export async function deleteSuggestionReplyAction(
   _prevState: SuggestionState,
   formData: FormData,
 ): Promise<SuggestionState> {
-  await requireRole("admin");
+  const me = await userService.currentUser();
+  if (!me) return { error: "You must be signed in." };
 
   const replyId = readId(formData, "replyId");
   const suggestionId = readId(formData, "suggestionId");
@@ -206,6 +232,10 @@ export async function deleteSuggestionReplyAction(
     return { error: "Reply not found." };
   }
 
+  if (reply.userId !== me.id && me.role.name !== "admin") {
+    return { error: "You can't delete this reply." };
+  }
+
   try {
     await replyService.delete(replyId);
   } catch (error) {
@@ -215,5 +245,6 @@ export async function deleteSuggestionReplyAction(
   }
 
   revalidateSuggestions();
+  await broadcastEntityUpdate(liveRoom("suggestion", suggestionId));
   return { ok: true };
 }

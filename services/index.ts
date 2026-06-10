@@ -10,7 +10,7 @@ export { PartnerService, partnerService } from "./partner-service";
 export {
   NotificationService,
   notificationService,
-} from "./notification-service";
+} from "@/notifications/notificationService";
 export { CompanyService, companyService } from "./company-service";
 export { ProjectService, projectService } from "./project-service";
 export {
@@ -60,14 +60,14 @@ export type {
 export {
   createNotificationSchema,
   notificationEntityTypeValues,
-} from "./notification-service";
+} from "@/notifications/notificationService";
 
 export type {
   CreateNotificationInput,
   NotificationBody,
   Notification,
   NotificationEntityType,
-} from "./notification-service";
+} from "@/notifications/notificationService";
 
 export {
   createCompanySchema,

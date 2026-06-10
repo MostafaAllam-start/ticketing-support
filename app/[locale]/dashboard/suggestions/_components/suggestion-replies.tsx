@@ -44,10 +44,14 @@ function formatDate(value: Date | string): string {
 export function SuggestionReplies({
   suggestionId,
   currentUserId,
+  canModerate = false,
   replies,
 }: {
   suggestionId: number;
   currentUserId: number;
+  // Whether the viewer may delete replies that aren't their own (admins). Authors
+  // can always delete their own messages regardless of this flag.
+  canModerate?: boolean;
   replies: ReplyWithAuthor[];
 }) {
   const t = useTranslations("Dashboard");
@@ -86,6 +90,7 @@ export function SuggestionReplies({
               key={reply.id}
               suggestionId={suggestionId}
               currentUserId={currentUserId}
+              canModerate={canModerate}
               reply={reply}
               childReplies={childrenByParent.get(reply.id) ?? []}
             />
@@ -105,11 +110,13 @@ export function SuggestionReplies({
 function TopLevelComment({
   suggestionId,
   currentUserId,
+  canModerate,
   reply,
   childReplies,
 }: {
   suggestionId: number;
   currentUserId: number;
+  canModerate: boolean;
   reply: ReplyWithAuthor;
   childReplies: ReplyWithAuthor[];
 }) {
@@ -122,6 +129,7 @@ function TopLevelComment({
         suggestionId={suggestionId}
         reply={reply}
         mine={reply.user.id === currentUserId}
+        canModerate={canModerate}
         onReply={() => setReplyOpen((open) => !open)}
       />
 
@@ -133,6 +141,7 @@ function TopLevelComment({
                 suggestionId={suggestionId}
                 reply={child}
                 mine={child.user.id === currentUserId}
+                canModerate={canModerate}
               />
             </li>
           ))}
@@ -160,11 +169,13 @@ function Message({
   suggestionId,
   reply,
   mine,
+  canModerate,
   onReply,
 }: {
   suggestionId: number;
   reply: ReplyWithAuthor;
   mine: boolean;
+  canModerate: boolean;
   onReply?: () => void;
 }) {
   const t = useTranslations("Dashboard");
@@ -221,16 +232,18 @@ function Message({
               {t("suggestions.replies.reply")}
             </Button>
           )}
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-destructive"
-            onClick={() => setDeleteOpen(true)}
-          >
-            <Trash2 className="size-3.5" />
-            {t("suggestions.replies.delete")}
-          </Button>
+          {(mine || canModerate) && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-destructive"
+              onClick={() => setDeleteOpen(true)}
+            >
+              <Trash2 className="size-3.5" />
+              {t("suggestions.replies.delete")}
+            </Button>
+          )}
         </div>
       </div>
 

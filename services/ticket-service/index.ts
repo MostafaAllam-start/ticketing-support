@@ -438,6 +438,27 @@ export class TicketService extends Service {
     return this.prisma.ticketReport.create({ data });
   }
 
+  // The ticket a report belongs to. Used to live-refresh the ticket detail page
+  // (where report replies render) when a report reply is edited or deleted — the
+  // edit/delete form only carries the reply id, not the ticket.
+  async reportTicketId(reportId: number): Promise<number | null> {
+    const report = await this.prisma.ticketReport.findUnique({
+      where: { id: reportId },
+      select: { ticketId: true },
+    });
+    return report?.ticketId ?? null;
+  }
+
+  // The engineer / consultant who authored a report. They are the report's
+  // "owner" and so a recipient of every reply on it (notifications).
+  async reportAuthorId(reportId: number): Promise<number | null> {
+    const report = await this.prisma.ticketReport.findUnique({
+      where: { id: reportId },
+      select: { userId: true },
+    });
+    return report?.userId ?? null;
+  }
+
   private scopeWhere(scope: TicketScope) {
     const where: {
       deletedAt: null;

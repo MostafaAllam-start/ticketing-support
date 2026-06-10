@@ -14,14 +14,8 @@ import {
 import type { AuthUser } from "@/services";
 import { ticketStatusValues } from "@/services/ticket-service/schemas";
 import { assertValidImages, readImageFiles, saveReportImages } from "@/lib/storage";
-import { ticketNotificationMessages } from "@/lib/notification-messages";
-import {
-  managersAndReviewersUserIds,
-  newAssigneeRecipientIds,
-  NotificationType,
-  projectStaffUserIds,
-  sendTicketNotification,
-} from "@/lib/ticket-notifications";
+import { eventBus } from "@/events/eventBus";
+import { DomainEventType } from "@/events/eventTypes";
 
 export type TicketActionState = {
   ok?: boolean;
@@ -196,16 +190,11 @@ export async function updateTicketStatusAction(
     return { error: error instanceof Error ? error.message : "Failed to save" };
   }
 
-  const messages = await ticketNotificationMessages();
-  const msg = messages.ticketStatusChanged(id, parsed.data.status);
-  await sendTicketNotification({
-    userIds: await projectStaffUserIds(ticket.projectId),
+  eventBus.emit(DomainEventType.TICKET_STATUS_CHANGED, {
+    ticketId: id,
     actorId: user.id,
-    type: NotificationType.TicketStatusChanged,
-    title: msg.title,
-    details: msg.details,
-    entityType: "ticket",
-    entityId: id,
+    status: parsed.data.status,
+    projectId: ticket.projectId ?? null,
   });
 
   revalidate();
@@ -244,31 +233,13 @@ export async function assignTicketAction(
     };
   }
 
-  const messages = await ticketNotificationMessages();
-  const staffMsg = messages.ticketAssigned(id);
-  await sendTicketNotification({
-    userIds: await projectStaffUserIds(ticket.projectId),
+  eventBus.emit(DomainEventType.TICKET_ASSIGNMENT_UPDATED, {
+    ticketId: id,
     actorId: user.id,
-    type: NotificationType.TicketAssigned,
-    title: staffMsg.title,
-    details: staffMsg.details,
-    entityType: "ticket",
-    entityId: id,
+    projectId: ticket.projectId ?? null,
+    previousAssigneeIds: previousIds,
+    nextAssigneeIds: nextIds,
   });
-
-  const newAssignees = await newAssigneeRecipientIds(previousIds, nextIds);
-  if (newAssignees.length > 0) {
-    const assignMsg = messages.ticketAssignedToYou(id);
-    await sendTicketNotification({
-      userIds: newAssignees,
-      actorId: user.id,
-      type: NotificationType.TicketAssignedToYou,
-      title: assignMsg.title,
-      details: assignMsg.details,
-      entityType: "ticket",
-      entityId: id,
-    });
-  }
 
   revalidate();
   return { ok: true };
@@ -432,16 +403,10 @@ export async function createReportAction(
     const paths = await saveReportImages(report.id, files);
     await attachmentService.attach("ticket_report", report.id, paths);
 
-    const messages = await ticketNotificationMessages();
-    const msg = messages.ticketReportSubmitted(ticketId);
-    await sendTicketNotification({
-      userIds: await managersAndReviewersUserIds(ticket.projectId),
+    eventBus.emit(DomainEventType.TICKET_REPORT_SUBMITTED, {
+      ticketId,
       actorId: user.id,
-      type: NotificationType.TicketReportSubmitted,
-      title: msg.title,
-      details: msg.details,
-      entityType: "ticket",
-      entityId: ticketId,
+      projectId: ticket.projectId ?? null,
     });
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Failed to save" };

@@ -11,12 +11,9 @@ import {
 } from "@/services";
 import type { AuthUser } from "@/services";
 import { canReplyToComplaint, canReplyToReport, requireDashboardUser } from "@/lib/auth/guards";
-import { ticketNotificationMessages } from "@/lib/notification-messages";
-import {
-  managersAndReviewersUserIds,
-  NotificationType,
-  sendTicketNotification,
-} from "@/lib/ticket-notifications";
+import { eventBus } from "@/events/eventBus";
+import { DomainEventType } from "@/events/eventTypes";
+import { broadcastEntityUpdate, liveRoom } from "@/realtime/liveReplies";
 import {
   assertValidImages,
   readImageFiles,
@@ -146,6 +143,7 @@ export async function postComplaintReplyAction(
   await attachmentService.attach("reply", reply.id, paths);
 
   revalidateComplaint(complaintId, complaint.ticketId);
+  await broadcastEntityUpdate(liveRoom("complaint", complaintId));
   return { ok: true };
 }
 
@@ -166,6 +164,7 @@ export async function updateComplaintReplyAction(
   await replyService.update(auth.reply.id, parsed.data.description);
   revalidatePath("/[locale]/dashboard/complaints/[id]", "page");
   revalidatePath("/[locale]/dashboard", "layout");
+  await broadcastEntityUpdate(liveRoom("complaint", auth.reply.entityId));
   return { ok: true };
 }
 
@@ -179,6 +178,7 @@ export async function deleteComplaintReplyAction(
   await replyService.delete(auth.reply.id);
   revalidatePath("/[locale]/dashboard/complaints/[id]", "page");
   revalidatePath("/[locale]/dashboard", "layout");
+  await broadcastEntityUpdate(liveRoom("complaint", auth.reply.entityId));
   return { ok: true };
 }
 
@@ -249,19 +249,17 @@ export async function postReportReplyAction(
   const paths = await saveReplyImages(reply.id, files);
   await attachmentService.attach("reply", reply.id, paths);
 
-  const messages = await ticketNotificationMessages();
-  const msg = messages.ticketReportReply(ticketId);
-  await sendTicketNotification({
-    userIds: await managersAndReviewersUserIds(ticket.projectId),
+  eventBus.emit(DomainEventType.TICKET_REPORT_REPLY_ADDED, {
+    ticketId,
+    reportId,
     actorId: user.id,
-    type: NotificationType.TicketReportReply,
-    title: msg.title,
-    details: msg.details,
-    entityType: "ticket",
-    entityId: ticketId,
+    projectId: ticket.projectId ?? null,
+    parentReplyId,
   });
 
   revalidateReport(ticketId);
+  // Report replies render on the ticket detail page, so broadcast to its room.
+  await broadcastEntityUpdate(liveRoom("ticket", ticketId));
   return { ok: true };
 }
 
@@ -282,6 +280,9 @@ export async function updateReportReplyAction(
   await replyService.update(auth.reply.id, parsed.data.description);
   revalidatePath("/[locale]/dashboard/tickets/[id]", "page");
   revalidatePath("/[locale]/dashboard", "layout");
+  // auth.reply.entityId is the report id; the room is keyed by its ticket.
+  const ticketId = await ticketService.reportTicketId(auth.reply.entityId);
+  if (ticketId != null) await broadcastEntityUpdate(liveRoom("ticket", ticketId));
   return { ok: true };
 }
 
@@ -292,8 +293,11 @@ export async function deleteReportReplyAction(
   const auth = await loadModifiableReply(formData, "ticket_report");
   if (!auth.ok) return auth.state;
 
+  // Resolve the ticket before the reply (and possibly its report) is gone.
+  const ticketId = await ticketService.reportTicketId(auth.reply.entityId);
   await replyService.delete(auth.reply.id);
   revalidatePath("/[locale]/dashboard/tickets/[id]", "page");
   revalidatePath("/[locale]/dashboard", "layout");
+  if (ticketId != null) await broadcastEntityUpdate(liveRoom("ticket", ticketId));
   return { ok: true };
 }

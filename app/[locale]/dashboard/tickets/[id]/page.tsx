@@ -20,6 +20,8 @@ import { TicketReviewSummary } from "../../../tickets/_components/ticket-review-
 import { ChangeStatusDialog } from "../../_components/ticket-row-actions";
 import { ReportFormDialog } from "../../_components/report-form-dialog";
 import { Button } from "@/components/ui/button";
+import { LiveReplies } from "@/components/live-replies";
+import { liveRoom } from "@/realtime/liveReplies";
 
 function statusVariant(status: string): "secondary" | "default" | "outline" {
   if (status === "open") return "secondary";
@@ -72,6 +74,7 @@ export default async function DashboardTicketDetailPage({
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-8">
+      <LiveReplies room={liveRoom("ticket", ticket.id)} />
       <Link
         href={backHref}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
