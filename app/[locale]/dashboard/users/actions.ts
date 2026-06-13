@@ -2,9 +2,16 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
+import { getTranslations } from "next-intl/server";
 import { userService } from "@/services";
 import { DEFAULT_ADMIN_USERNAME, requireRole } from "@/lib/auth/guards";
 import { saveUserImage } from "@/lib/uploads";
+
+// Scoped translator for the inline form validation messages.
+type ErrorTranslator = (key: string) => string;
+function getErrorTranslations(): Promise<ErrorTranslator> {
+  return getTranslations("Dashboard.users.form.errors");
+}
 
 // Initial password for admin-created accounts. The create form has no password
 // field; the value comes from the environment (falling back to a sane default).
@@ -19,12 +26,24 @@ export type ActionState = {
 // Shared identity fields. `password` is required on create and optional on edit
 // (blank = keep current), so it's validated separately. `isAdmin` (the only
 // global role) is read off the form checkbox separately; all other roles are
-// granted per-project on the Projects page.
-const identitySchema = z.object({
-  name: z.string().min(1),
-  username: z.string().min(3),
-  email: z.email(),
-});
+// granted per-project on the Projects page. Built per-request so the messages
+// are translated to the caller's locale.
+function identitySchema(t: ErrorTranslator) {
+  return z.object({
+    name: z.string().trim().min(1, t("nameRequired")),
+    username: z
+      .string()
+      .trim()
+      .min(3, t("usernameMin"))
+      .regex(/^[a-zA-Z0-9._-]+$/, t("usernameFormat")),
+    email: z.email(t("emailInvalid")),
+  });
+}
+
+// Field-level message for a username/email that already belongs to another user.
+function conflictMessage(t: ErrorTranslator, field: "username" | "email"): string {
+  return field === "username" ? t("usernameTaken") : t("emailRegistered");
+}
 
 function fieldErrorsFrom(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};
@@ -39,6 +58,13 @@ function fieldErrorsFrom(error: z.ZodError): Record<string, string> {
 
 function readId(formData: FormData): number | null {
   const n = Number(formData.get("id"));
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+// The company select is optional: a blank/missing value clears the user's
+// company (null), otherwise it's the chosen company's id.
+function readCompanyId(formData: FormData): number | null {
+  const n = Number(formData.get("companyId"));
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 
@@ -72,13 +98,23 @@ export async function createUserAction(
 ): Promise<ActionState> {
   await requireRole("admin");
 
-  const parsed = identitySchema.safeParse({
+  const t = await getErrorTranslations();
+  const parsed = identitySchema(t).safeParse({
     name: formData.get("name"),
     username: formData.get("username"),
     email: formData.get("email"),
   });
   if (!parsed.success) {
     return { fieldErrors: fieldErrorsFrom(parsed.error) };
+  }
+
+  // Reject a username/email already taken, surfaced on the offending field.
+  const conflict = await userService.findConflict(
+    parsed.data.username,
+    parsed.data.email,
+  );
+  if (conflict) {
+    return { fieldErrors: { [conflict]: conflictMessage(t, conflict) } };
   }
 
   let image: string | null;
@@ -93,7 +129,9 @@ export async function createUserAction(
   }
 
   const isAdmin = formData.get("isAdmin") === "true";
-  const canAccessDashboard = formData.get("canAccessDashboard") === "true";
+  // Admins always have dashboard access, so an admin implies the flag.
+  const canAccessDashboard =
+    isAdmin || formData.get("canAccessDashboard") === "true";
   try {
     await userService.register(
       {
@@ -103,7 +141,16 @@ export async function createUserAction(
         jobTitle: readOptional(formData, "jobTitle"),
         image: image ?? undefined,
       },
-      { isAdmin, canAccessDashboard },
+      {
+        isAdmin,
+        canAccessDashboard,
+        companyId: readCompanyId(formData),
+        website: readOptional(formData, "website") ?? null,
+        whatsapp: readOptional(formData, "whatsapp") ?? null,
+        linkedin: readOptional(formData, "linkedin") ?? null,
+        isTeamMember: formData.get("isTeamMember") === "true",
+        hasContactInfoCard: formData.get("hasContactInfoCard") === "true",
+      },
     );
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Failed to save" };
@@ -125,7 +172,8 @@ export async function updateUserAction(
   const existing = await userService.findWithRole(id);
   if (!existing) return { error: "Invalid user" };
 
-  const parsed = identitySchema.safeParse({
+  const t = await getErrorTranslations();
+  const parsed = identitySchema(t).safeParse({
     name: formData.get("name"),
     username: formData.get("username"),
     email: formData.get("email"),
@@ -136,7 +184,18 @@ export async function updateUserAction(
     ? {}
     : fieldErrorsFrom(parsed.error);
   if (password !== undefined && password.length < 8) {
-    fieldErrors.password = "Password must be at least 8 characters";
+    fieldErrors.password = t("passwordMin");
+  }
+  // Reject a username/email already taken by *another* user (ignore this one).
+  if (parsed.success) {
+    const conflict = await userService.findConflict(
+      parsed.data.username,
+      parsed.data.email,
+      id,
+    );
+    if (conflict) {
+      fieldErrors[conflict] = conflictMessage(t, conflict);
+    }
   }
   if (!parsed.success || Object.keys(fieldErrors).length > 0) {
     return { fieldErrors };
@@ -157,7 +216,9 @@ export async function updateUserAction(
   // submits otherwise.
   const isDefaultAdmin = existing.username === DEFAULT_ADMIN_USERNAME;
   const isAdmin = isDefaultAdmin ? true : formData.get("isAdmin") === "true";
-  const canAccessDashboard = formData.get("canAccessDashboard") === "true";
+  // Admins always have dashboard access, so an admin implies the flag.
+  const canAccessDashboard =
+    isAdmin || formData.get("canAccessDashboard") === "true";
 
   try {
     await userService.update(id, {
@@ -168,6 +229,12 @@ export async function updateUserAction(
       image,
       // A null clears the column; undefined would leave it unchanged.
       jobTitle: readOptional(formData, "jobTitle") ?? null,
+      companyId: readCompanyId(formData),
+      website: readOptional(formData, "website") ?? null,
+      whatsapp: readOptional(formData, "whatsapp") ?? null,
+      linkedin: readOptional(formData, "linkedin") ?? null,
+      isTeamMember: formData.get("isTeamMember") === "true",
+      hasContactInfoCard: formData.get("hasContactInfoCard") === "true",
     });
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Failed to save" };

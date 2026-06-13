@@ -46,4 +46,6 @@ export const updateUserSchema = z.object({
   companyId: z.number().int().positive().nullable().optional(),
   // Whether the user is featured on their company's public landing-page team.
   isTeamMember: z.boolean().optional(),
+  // Whether the user has a public contact card at /contact-info/[id].
+  hasContactInfoCard: z.boolean().optional(),
 });

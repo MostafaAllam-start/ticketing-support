@@ -77,6 +77,15 @@
       "dashboard": "Dashboard access",
       "dashboardHint": "Allow this user to open the staff dashboard.",
       "jobTitle": "Job title",
+      "company": "Company",
+      "companyNone": "No company",
+      "website": "Website",
+      "whatsapp": "WhatsApp",
+      "linkedin": "LinkedIn",
+      "teamMember": "Team member",
+      "teamMemberHint": "Feature this user on their company's landing page.",
+      "contactCard": "Contact card",
+      "contactCardHint": "Publish a public contact card for this user.",
       "image": "Photo",
       "imageHint": "Drag & drop an image here, or click to browse",
       "imageTypes": "PNG, JPG, WEBP or GIF · up to 5 MB",
@@ -85,7 +94,16 @@
       "passwordHint": "Leave blank to keep the current password.",
       "cancel": "Cancel",
       "save": "Save",
-      "saving": "Saving…"
+      "saving": "Saving…",
+      "errors": {
+        "nameRequired": "Name is required",
+        "usernameMin": "Username must be at least 3 characters",
+        "usernameFormat": "Username may only contain letters, numbers, and . _ -",
+        "emailInvalid": "Enter a valid email address",
+        "passwordMin": "Password must be at least 8 characters",
+        "usernameTaken": "This username is already taken",
+        "emailRegistered": "This email is already registered"
+      }
     },
     "toast": {
       "created": "User created.",

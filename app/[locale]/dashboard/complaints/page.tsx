@@ -10,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ComplaintRow } from "./_components/complaint-row";
 
 export default async function ComplaintsPage({
   params,
@@ -58,7 +59,11 @@ export default async function ComplaintsPage({
             </TableHeader>
             <TableBody>
               {complaints.map((complaint) => (
-                <TableRow key={complaint.id}>
+                <ComplaintRow
+                  key={complaint.id}
+                  id={complaint.id}
+                  label={complaint.title}
+                >
                   <TableCell className="text-muted-foreground">
                     <Link
                       href={`/dashboard/complaints/${complaint.id}`}
@@ -90,7 +95,7 @@ export default async function ComplaintsPage({
                   <TableCell className="text-muted-foreground tabular-nums">
                     {complaint.createdAt.toISOString().slice(0, 10)}
                   </TableCell>
-                </TableRow>
+                </ComplaintRow>
               ))}
             </TableBody>
           </Table>

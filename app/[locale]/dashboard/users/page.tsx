@@ -1,6 +1,6 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { DEFAULT_ADMIN_USERNAME, requireRole } from "@/lib/auth/guards";
-import { userService } from "@/services";
+import { companyService, userService } from "@/services";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -38,7 +38,11 @@ export default async function UsersPage({
   const admin = await requireRole("admin");
   const t = await getTranslations("Dashboard");
 
-  const users = await userService.listDetailed();
+  const [users, companies] = await Promise.all([
+    userService.listDetailed(),
+    companyService.list(),
+  ]);
+  const companyOptions = companies.map((c) => ({ id: c.id, name: c.name }));
 
   return (
     <div className="space-y-6">
@@ -50,7 +54,7 @@ export default async function UsersPage({
           <p className="text-sm text-muted-foreground">{t("users.subtitle")}</p>
           <p className="text-xs text-muted-foreground">{t("users.details.hint")}</p>
         </div>
-        <AddUserButton />
+        <AddUserButton companies={companyOptions} />
       </div>
 
       <div className="rounded-lg border">
@@ -137,7 +141,14 @@ export default async function UsersPage({
                       canAccessDashboard: user.canAccessDashboard,
                       image: user.image,
                       isDisabled: user.isDisabled,
+                      companyId: user.companyId,
+                      website: user.website,
+                      whatsapp: user.whatsapp,
+                      linkedin: user.linkedin,
+                      isTeamMember: user.isTeamMember,
+                      hasContactInfoCard: user.hasContactInfoCard,
                     }}
+                    companies={companyOptions}
                     isSelf={user.id === admin.id}
                     isDefaultAdmin={user.username === DEFAULT_ADMIN_USERNAME}
                   />

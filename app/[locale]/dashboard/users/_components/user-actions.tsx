@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { keepInputOnError } from "@/lib/utils";
+import { cn, keepInputOnError } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ImageDropzone } from "@/components/ui/image-dropzone";
@@ -48,7 +48,18 @@ export type UserItem = {
   canAccessDashboard: boolean;
   image: string | null;
   isDisabled: boolean;
+  companyId: number | null;
+  website: string | null;
+  whatsapp: string | null;
+  linkedin: string | null;
+  isTeamMember: boolean;
+  hasContactInfoCard: boolean;
 };
+
+type CompanyOption = { id: number; name: string };
+
+const selectClass =
+  "w-full rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-base outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30";
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
@@ -58,12 +69,15 @@ function FieldError({ message }: { message?: string }) {
 function UserFormDialog({
   mode,
   user,
+  companies = [],
   adminLocked = false,
   open,
   onOpenChange,
 }: {
   mode: "add" | "edit";
   user?: UserItem;
+  // Companies the user can be assigned to (only used in edit mode).
+  companies?: CompanyOption[];
   // The default admin can't be demoted — render the checkbox checked + disabled.
   adminLocked?: boolean;
   open: boolean;
@@ -75,6 +89,16 @@ function UserFormDialog({
     action,
     {},
   );
+
+  // Admin implies dashboard access, so when "admin" is on we force the
+  // dashboard-access checkbox checked + disabled. Tracking both as state keeps
+  // the dashboard toggle in sync as the admin checkbox flips.
+  const [isAdmin, setIsAdmin] = useState(adminLocked || Boolean(user?.isAdmin));
+  const [canAccessDashboard, setCanAccessDashboard] = useState(
+    Boolean(user?.canAccessDashboard),
+  );
+  const adminOn = adminLocked || isAdmin;
+  const dashboardOn = adminOn || canAccessDashboard;
 
   useEffect(() => {
     if (state.ok) {
@@ -89,33 +113,43 @@ function UserFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <form action={formAction} onReset={keepInputOnError(state)} className="grid gap-4">
+      {/* Header and footer stay fixed; only the field area scrolls. The height
+          is capped on tablet/desktop so the dialog never outgrows the viewport. */}
+      <DialogContent className="flex flex-col gap-4 sm:max-h-[85vh]">
+        <DialogHeader>
+          <DialogTitle>
+            {mode === "add"
+              ? t("users.form.addTitle")
+              : t("users.form.editTitle")}
+          </DialogTitle>
+          <DialogDescription>{t("users.form.description")}</DialogDescription>
+        </DialogHeader>
+
+        <form
+          action={formAction}
+          onReset={keepInputOnError(state)}
+          className="flex min-h-0 flex-1 flex-col gap-4"
+        >
           {mode === "edit" && user && (
             <input type="hidden" name="id" value={user.id} />
           )}
-          <DialogHeader>
-            <DialogTitle>
-              {mode === "add"
-                ? t("users.form.addTitle")
-                : t("users.form.editTitle")}
-            </DialogTitle>
-            <DialogDescription>{t("users.form.description")}</DialogDescription>
-          </DialogHeader>
 
-          <div className="space-y-2">
-            <Label htmlFor="user-name">{t("users.form.name")}</Label>
-            <Input
-              id="user-name"
-              name="name"
-              defaultValue={user?.name}
-              aria-invalid={Boolean(state.fieldErrors?.name)}
-              required
-            />
-            <FieldError message={state.fieldErrors?.name} />
-          </div>
-
+          {/* Scrollable field region (negative margin + padding so focus rings
+              aren't clipped by the overflow container). */}
+          <div className="-mx-1 grid min-h-0 flex-1 content-start gap-4 overflow-y-auto px-1">
           <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="user-name">{t("users.form.name")}</Label>
+              <Input
+                id="user-name"
+                name="name"
+                defaultValue={user?.name}
+                aria-invalid={Boolean(state.fieldErrors?.name)}
+                required
+              />
+              <FieldError message={state.fieldErrors?.name} />
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="user-username">{t("users.form.username")}</Label>
               <Input
@@ -127,19 +161,81 @@ function UserFormDialog({
               />
               <FieldError message={state.fieldErrors?.username} />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="user-email">{t("users.form.email")}</Label>
+            <Input
+              id="user-email"
+              name="email"
+              type="email"
+              defaultValue={user?.email}
+              aria-invalid={Boolean(state.fieldErrors?.email)}
+              required
+            />
+            <FieldError message={state.fieldErrors?.email} />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            {/* Company is optional in both create and edit. Blank means no
+                company (and on edit, clears any existing assignment). */}
+            <div className="space-y-2">
+              <Label htmlFor="user-company">{t("users.form.company")}</Label>
+              <select
+                id="user-company"
+                name="companyId"
+                defaultValue={user?.companyId ?? ""}
+                className={cn(selectClass)}
+              >
+                <option value="">{t("users.form.companyNone")}</option>
+                {companies.map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             <div className="space-y-2">
-              <Label htmlFor="user-email">{t("users.form.email")}</Label>
+              <Label htmlFor="user-jobTitle">{t("users.form.jobTitle")}</Label>
               <Input
-                id="user-email"
-                name="email"
-                type="email"
-                defaultValue={user?.email}
-                aria-invalid={Boolean(state.fieldErrors?.email)}
-                required
+                id="user-jobTitle"
+                name="jobTitle"
+                defaultValue={user?.jobTitle ?? ""}
               />
-              <FieldError message={state.fieldErrors?.email} />
             </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="user-website">{t("users.form.website")}</Label>
+              <Input
+                id="user-website"
+                name="website"
+                defaultValue={user?.website ?? ""}
+                placeholder="https://…"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="user-whatsapp">{t("users.form.whatsapp")}</Label>
+              <Input
+                id="user-whatsapp"
+                name="whatsapp"
+                defaultValue={user?.whatsapp ?? ""}
+                placeholder="+962…"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="user-linkedin">{t("users.form.linkedin")}</Label>
+            <Input
+              id="user-linkedin"
+              name="linkedin"
+              defaultValue={user?.linkedin ?? ""}
+              placeholder="https://www.linkedin.com/in/…"
+            />
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -151,7 +247,8 @@ function UserFormDialog({
                   type="checkbox"
                   name="isAdmin"
                   value="true"
-                  defaultChecked={adminLocked || user?.isAdmin}
+                  checked={adminOn}
+                  onChange={(event) => setIsAdmin(event.target.checked)}
                   disabled={adminLocked}
                   className="size-4 rounded border-input"
                 />
@@ -169,32 +266,72 @@ function UserFormDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="user-jobTitle">{t("users.form.jobTitle")}</Label>
-              <Input
-                id="user-jobTitle"
-                name="jobTitle"
-                defaultValue={user?.jobTitle ?? ""}
-              />
+              <Label htmlFor="user-canAccessDashboard">
+                {t("users.form.dashboard")}
+              </Label>
+              <label className="flex h-9 items-center gap-2 text-sm">
+                <input
+                  id="user-canAccessDashboard"
+                  type="checkbox"
+                  name="canAccessDashboard"
+                  value="true"
+                  checked={dashboardOn}
+                  onChange={(event) =>
+                    setCanAccessDashboard(event.target.checked)
+                  }
+                  // Admins always have dashboard access — lock it on for them.
+                  disabled={adminOn}
+                  className="size-4 rounded border-input"
+                />
+                <span className="text-muted-foreground">
+                  {t("users.form.dashboardHint")}
+                </span>
+              </label>
+              {/* A disabled checkbox submits nothing, so carry the forced flag. */}
+              {adminOn && (
+                <input type="hidden" name="canAccessDashboard" value="true" />
+              )}
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="user-canAccessDashboard">
-              {t("users.form.dashboard")}
-            </Label>
-            <label className="flex h-9 items-center gap-2 text-sm">
-              <input
-                id="user-canAccessDashboard"
-                type="checkbox"
-                name="canAccessDashboard"
-                value="true"
-                defaultChecked={user?.canAccessDashboard}
-                className="size-4 rounded border-input"
-              />
-              <span className="text-muted-foreground">
-                {t("users.form.dashboardHint")}
-              </span>
-            </label>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="user-isTeamMember">
+                {t("users.form.teamMember")}
+              </Label>
+              <label className="flex h-9 items-center gap-2 text-sm">
+                <input
+                  id="user-isTeamMember"
+                  type="checkbox"
+                  name="isTeamMember"
+                  value="true"
+                  defaultChecked={user?.isTeamMember}
+                  className="size-4 rounded border-input"
+                />
+                <span className="text-muted-foreground">
+                  {t("users.form.teamMemberHint")}
+                </span>
+              </label>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="user-hasContactInfoCard">
+                {t("users.form.contactCard")}
+              </Label>
+              <label className="flex h-9 items-center gap-2 text-sm">
+                <input
+                  id="user-hasContactInfoCard"
+                  type="checkbox"
+                  name="hasContactInfoCard"
+                  value="true"
+                  defaultChecked={user?.hasContactInfoCard}
+                  className="size-4 rounded border-input"
+                />
+                <span className="text-muted-foreground">
+                  {t("users.form.contactCardHint")}
+                </span>
+              </label>
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -235,6 +372,7 @@ function UserFormDialog({
               </p>
             </div>
           )}
+          </div>
 
           <DialogFooter>
             <DialogClose asChild>
@@ -326,7 +464,7 @@ function ToggleDisabledDialog({
   );
 }
 
-export function AddUserButton() {
+export function AddUserButton({ companies }: { companies: CompanyOption[] }) {
   const t = useTranslations("Dashboard");
   const [open, setOpen] = useState(false);
 
@@ -336,17 +474,24 @@ export function AddUserButton() {
         <Plus />
         {t("users.add")}
       </Button>
-      <UserFormDialog mode="add" open={open} onOpenChange={setOpen} />
+      <UserFormDialog
+        mode="add"
+        companies={companies}
+        open={open}
+        onOpenChange={setOpen}
+      />
     </>
   );
 }
 
 export function UserRowActions({
   user,
+  companies,
   isSelf,
   isDefaultAdmin = false,
 }: {
   user: UserItem;
+  companies: CompanyOption[];
   isSelf: boolean;
   isDefaultAdmin?: boolean;
 }) {
@@ -391,6 +536,7 @@ export function UserRowActions({
       <UserFormDialog
         mode="edit"
         user={user}
+        companies={companies}
         adminLocked={isDefaultAdmin}
         open={editOpen}
         onOpenChange={setEditOpen}

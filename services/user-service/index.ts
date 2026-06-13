@@ -361,7 +361,16 @@ export class UserService extends Service {
   // userProjectService.
   async register(
     input: RegisterInput,
-    opts: { isAdmin?: boolean; canAccessDashboard?: boolean } = {},
+    opts: {
+      isAdmin?: boolean;
+      canAccessDashboard?: boolean;
+      companyId?: number | null;
+      website?: string | null;
+      whatsapp?: string | null;
+      linkedin?: string | null;
+      isTeamMember?: boolean;
+      hasContactInfoCard?: boolean;
+    } = {},
   ): Promise<SafeUser> {
     const data = registerSchema.parse(input);
     await this.assertUnique(data.username, data.email);
@@ -376,6 +385,12 @@ export class UserService extends Service {
         image: data.image,
         isAdmin: opts.isAdmin ?? false,
         canAccessDashboard: opts.canAccessDashboard ?? false,
+        companyId: opts.companyId ?? null,
+        website: opts.website ?? null,
+        whatsapp: opts.whatsapp ?? null,
+        linkedin: opts.linkedin ?? null,
+        isTeamMember: opts.isTeamMember ?? false,
+        hasContactInfoCard: opts.hasContactInfoCard ?? false,
       },
     });
     return this.sanitize(user);
@@ -429,6 +444,32 @@ export class UserService extends Service {
       data: { deletedAt: new Date(), isDisabled: true },
     });
     return this.sanitize(user);
+  }
+
+  // Returns which identity field ("username" or "email") already belongs to
+  // another user, or null when both are free. Unlike assertUnique it doesn't
+  // throw, so callers (e.g. forms) can map the clash to a field-level error.
+  // Pass `excludeId` to ignore the user being edited. The uniqueness applies
+  // across all rows, including soft-deleted ones.
+  async findConflict(
+    username?: string,
+    email?: string,
+    excludeId?: number,
+  ): Promise<"username" | "email" | null> {
+    const conditions: Array<{ username: string } | { email: string }> = [];
+    if (username) conditions.push({ username });
+    if (email) conditions.push({ email });
+    if (conditions.length === 0) return null;
+
+    const existing = await this.prisma.user.findFirst({
+      where: {
+        OR: conditions,
+        ...(excludeId !== undefined ? { NOT: { id: excludeId } } : {}),
+      },
+      select: { username: true, email: true },
+    });
+    if (!existing) return null;
+    return username && existing.username === username ? "username" : "email";
   }
 
   // --- helpers ---
@@ -485,28 +526,15 @@ export class UserService extends Service {
     }
   }
 
-  // Enforces the username/email unique constraints (which apply across all rows,
-  // including soft-deleted ones) with a friendly error before hitting the DB.
+  // Enforces the username/email unique constraints with a friendly error before
+  // hitting the DB. A backstop for callers that don't pre-check via findConflict.
   private async assertUnique(
     username?: string,
     email?: string,
     excludeId?: number,
   ): Promise<void> {
-    const conditions: Array<{ username: string } | { email: string }> = [];
-    if (username) conditions.push({ username });
-    if (email) conditions.push({ email });
-    if (conditions.length === 0) return;
-
-    const existing = await this.prisma.user.findFirst({
-      where: {
-        OR: conditions,
-        ...(excludeId !== undefined ? { NOT: { id: excludeId } } : {}),
-      },
-      select: { username: true, email: true },
-    });
-    if (existing) {
-      const field =
-        username && existing.username === username ? "username" : "email";
+    const field = await this.findConflict(username, email, excludeId);
+    if (field) {
       throw new Error(`A user with this ${field} already exists`);
     }
   }
